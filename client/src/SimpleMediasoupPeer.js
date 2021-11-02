@@ -28,6 +28,37 @@ export class SimpleMediasoupPeer {
         await this.createRecvTransport();
     }
 
+    async produce(stream) {
+        let track = stream.getVideoTracks()[0];
+        // console.log(videoTrack);
+     
+
+        // this.producer = await this.sendTransport.produce({
+        //     track,
+        //         encodings:
+        //             [
+        //                 { maxBitrate: 100000 },
+        //                 { maxBitrate: 300000 },
+        //                 { maxBitrate: 900000 }
+        //             ],
+        //         codecOptions:
+        //         {
+        //             videoGoogleStartBitrate: 1000
+        //         }
+        //     });
+
+            this.dataProducer = await this.sendTransport.produceData(
+				{
+					ordered        : false,
+					maxRetransmits : 1,
+					label          : 'chat',
+					priority       : 'medium',
+					appData        : { }
+				});
+                this.dataProducer.send('hello');
+
+    }
+
     setupMediasoupDevice() {
         try {
             this.device = new mediasoupClient.Device();
@@ -137,10 +168,6 @@ export class SimpleMediasoupPeer {
                 errback(error);
             }
         });
-
-
-
-
 
         console.log("Created send transport!");
     }

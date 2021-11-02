@@ -26,12 +26,29 @@ function setupSocketConnection() {
 }
 
 
+async function startStream() {
+  let stream = null;
+
+  try {
+    let constraints = { audio: false, video: true }
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    /* use the stream */
+    mediasoupPeer.produce(stream);
+  } catch(err) {
+    /* handle the error */
+  }
+}
+
+
 function main() {
   console.log('~~~~~~~~~~~~~~~~~');
   setupSocketConnection();
   mediasoupPeer = new SimpleMediasoupPeer(socket);
-
+  setTimeout(() => {
+    startStream()
+  },2000)
   
 }
 
 main();
+
