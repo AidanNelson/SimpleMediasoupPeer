@@ -39,6 +39,7 @@ function setupSocketServer(mediasoupManager) {
         });
 
         socket.on('disconnect', () => {
+            mediasoupManager.removePeer(socket.id);
             delete clients[socket.id];
             io.sockets.emit('clientDisconnected', socket.id);
             console.log('client disconnected: ', socket.id);
@@ -56,7 +57,6 @@ function setupSocketServer(mediasoupManager) {
 
 function main() {
     let mediasoupManager = new MediasoupManager();
-
     setupSocketServer(mediasoupManager);
 }
 

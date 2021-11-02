@@ -12,41 +12,40 @@ add to github and share with shawn
 
 */
 
-export class MediasoupPeer {
-    constructor(socket){
+export class SimpleMediasoupPeer {
+    constructor(socket) {
         console.log("Setting up new MediasoupPeer");
         this.device = null;
         this.socket = socket;
 
-
-        this.setupMediasoupDevice();
-
-        this.connectToMediasoupRouter();
-
+        this.initialize();
     }
 
-    setupMediasoupDevice(){
+    async initialize(){
+        this.setupMediasoupDevice();
+        await this.connectToMediasoupRouter();
+        await this.createSendTransport();
+    }
+
+    setupMediasoupDevice() {
         try {
             this.device = new mediasoupClient.Device();
-            console.log(this.device);
-        } catch(err){
+        } catch (err) {
             console.error(err);
         }
     }
 
-    async connectToMediasoupRouter(){
-        const routerRtpCapabilities  = await this.socket.request('mediasoupSignaling', {'type': 'getRouterRtpCapabilities'});
-        await this.device.load({routerRtpCapabilities});
-        console.log(this.device);
+    async connectToMediasoupRouter() {
+        const routerRtpCapabilities = await this.socket.request('mediasoupSignaling', { 'type': 'getRouterRtpCapabilities' });
+        await this.device.load({ routerRtpCapabilities });
     }
 
-    async createWebRTCTransports() {
-        const transportInfo = await this.socket.request('mediasoupSignaling', {type: 'createWebRtcTransport', data: {
-            forceTcp: false,
-            producing: true,
-            consuming: false,
-            sctpCapabilities : true
-        }})
+    async createSendTransport() {
+        const transportInfo = await this.socket.request('mediasoupSignaling', {
+            type: 'createWebRtcTransport', data: {
+                sctpCapabilities: this.device.sctpCapabilities
+            }
+        })
 
         const {
             id,
@@ -62,11 +61,10 @@ export class MediasoupPeer {
             iceCandidates,
             dtlsParameters,
             sctpParameters,
-            iceServers             : [],
-            proprietaryConstraints : PC_PROPRIETARY_CONSTRAINTS,
-            additionalSettings 	   :
-                { encodedInsertableStreams: this._e2eKey && e2e.isSupported() }
+            iceServers: []
         });
+
+        console.log(this.sendTransport);
     }
 
 }

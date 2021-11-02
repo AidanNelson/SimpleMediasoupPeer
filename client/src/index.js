@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-import { MediasoupPeer } from "./MediasoupPeer";
+import { SimpleMediasoupPeer } from "./SimpleMediasoupPeer";
 // import { socketPromise } from "./socket.io-promise";
 const socketPromise = require('./socket.io-promise').promise;
 
@@ -17,25 +17,21 @@ function setupSocketConnection() {
     path: "/socket.io",
   });
 
-  // console.log(socket.request);
   socket.request = socketPromise(socket);
-  // client-side
+
   socket.on("connect", () => {
-    console.log(socket.id); // x8WIv7-mJelg7on_ALbx
+    console.log("Socket ID: ",socket.id); // x8WIv7-mJelg7on_ALbx
   });
 
-  socket.on("clients", () => { });
-  socket.on("clientConnected", () => { });
-  socket.on("clientDisconnected", () => { });
 }
 
 
 function main() {
+  console.log('~~~~~~~~~~~~~~~~~');
   setupSocketConnection();
-  mediasoupPeer = new MediasoupPeer(socket);
+  mediasoupPeer = new SimpleMediasoupPeer(socket);
 
-
-  console.log('hello');
+  
 }
 
 main();
