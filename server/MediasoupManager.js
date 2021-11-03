@@ -86,6 +86,17 @@ class MediasoupManager {
 
                     break;
                 }
+
+            case "produce":
+                {
+                    console.log('Producer:',request.data);
+                }
+            
+            case "produceData":
+                {
+                    console.log("produce data", request.data);
+                    
+                }
         }
     }
 

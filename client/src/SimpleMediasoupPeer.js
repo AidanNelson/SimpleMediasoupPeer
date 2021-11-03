@@ -106,12 +106,13 @@ export class SimpleMediasoupPeer {
             'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
         {
             console.log('Connecting Send Transport');
-            this.socket.request(
-                'connectWebRtcTransport',
-                {
+            this.socket.request('mediasoupSignaling',{
+                type: 'connectWebRtcTransport',
+                data: {
                     transportId: this.sendTransport.id,
                     dtlsParameters
-                })
+                }
+            })
                 .then(callback)
                 .catch(errback);
         });
@@ -120,14 +121,14 @@ export class SimpleMediasoupPeer {
             'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
                 try {
                     // eslint-disable-next-line no-shadow
-                    const { id } = await this.socket.request(
-                        'produce',
-                        {
+                    const { id } = await this.socket.request('mediasoupSignaling',{
+                        type: 'produce',
+                        data: {
                             transportId: this.sendTransport.id,
                             kind,
                             rtpParameters,
                             appData
-                        });
+                        }});
 
                     callback({ id });
                 }
@@ -146,21 +147,18 @@ export class SimpleMediasoupPeer {
             callback,
             errback
         ) => {
-            logger.debug(
-                '"producedata" event: [sctpStreamParameters:%o, appData:%o]',
-                sctpStreamParameters, appData);
 
             try {
                 // eslint-disable-next-line no-shadow
-                const { id } = await this.socket.request(
-                    'produceData',
-                    {
+                const { id } = await this.socket.request('mediasoupSignaling',{
+                    type: 'produceData',
+                    data: {
                         transportId: this.sendTransport.id,
                         sctpStreamParameters,
                         label,
                         protocol,
                         appData
-                    });
+                    }});
 
                 callback({ id });
             }
