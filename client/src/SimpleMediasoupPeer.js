@@ -56,7 +56,17 @@ export class SimpleMediasoupPeer {
 			// 		appData        : { }
 			// 	});
             //     this.dataProducer.send('hello');
+        console.log(this.producer);
+        this.connectToPeer(this.socket.id);
+    }
 
+    async connectToPeer(otherPeerId){
+        let consumers = await this.socket.request('mediasoupSignaling', { 'type': 'connectToPeer', data: {
+            otherPeerId: otherPeerId
+        } });
+        console.log(consumers);
+
+        // start consumers
     }
 
     setupMediasoupDevice() {
