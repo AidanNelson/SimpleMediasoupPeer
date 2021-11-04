@@ -58,7 +58,6 @@ class MediasoupManager {
         switch (request.type) {
             case "getRouterRtpCapabilities":
                 {
-                    console.log(this.routers[this.peers[id].routerIndex].rtpCapabilities)
                     callback(this.routers[this.peers[id].routerIndex].rtpCapabilities);
                     break;
                 }
@@ -73,7 +72,7 @@ class MediasoupManager {
 
             case "connectWebRtcTransport":
                 {
-                    console.log('Connecting Send Transport');
+                    console.log('Connecting transport!');
 
                     const { transportId, dtlsParameters } = request.data;
                     const transport = this.peers[id].transports[transportId];
@@ -90,7 +89,7 @@ class MediasoupManager {
 
             case "produce":
                 {
-                    console.log('Producer:', request.data);
+                    console.log("Creating producer!");
                     const producer = await this.createProducer(id, request.data);
                     callback({id: producer.id});
                     break;
@@ -98,15 +97,25 @@ class MediasoupManager {
 
             case "produceData":
                 {
-                    console.log("produce data", request.data);
+                    // console.log("produce data", request.data);
                     break;
                 }
 
             case "connectToPeer":
                 {
-                    console.log("consume data", request.data);
+                    console.log("Connecting peer to other peer!");
                     let consumers = await this.connectToPeer(id, request.data.otherPeerId);
                     callback(consumers);
+                    break;
+                }
+            
+            case "resumeConsumer":
+                {
+                    console.log("Resuming consumer!");
+                    const consumer = this.getConsumer(id, request.data.consumerId);
+                    await consumer.resume();
+                    callback();
+
                     break;
                 }
         }
@@ -133,10 +142,14 @@ class MediasoupManager {
         return this.peers[id].producers;
     }
 
+    getConsumer(peerId, consumerId){
+        return this.peers[peerId].consumers[consumerId];
+    }
+
 
     async connectToPeer(id, producingPeerId){
         let producers = this.getProducersForPeer(producingPeerId);
-        console.log(producers);
+        // console.log(producers);
         let consumers = [];
         for(let producerId in producers){
             let existingConsumer = this.peers[id].consumers[producerId];
@@ -144,20 +157,16 @@ class MediasoupManager {
                 console.log('already consuming!');
             } else {
                let newConsumer = await this.createConsumer(id, producingPeerId, producers[producerId ]);
-               console.log("newConsumer");
                consumers.push(newConsumer);
             }
         }
         return consumers;
-
     }
 
     async createConsumer(consumingPeerId, producingPeerId, producer){
         let consumer;
         try {
             let transport = this.getRecvTransportForPeer(consumingPeerId);
-            console.log('got receive transport');
-            console.log(transport);
             consumer = await transport.consume({
                 producerId      : producer.id,
                 rtpCapabilities : this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
@@ -251,7 +260,6 @@ class MediasoupManager {
             appData: { producing, consuming }
         };
 
-        console.log(webRtcTransportOptions);
 
         try {
             const transport = await this.getRouterForPeer(id).createWebRtcTransport(webRtcTransportOptions);

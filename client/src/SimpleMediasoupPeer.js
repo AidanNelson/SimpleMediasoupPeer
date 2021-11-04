@@ -18,6 +18,9 @@ export class SimpleMediasoupPeer {
         this.device = null;
         this.socket = socket;
 
+        this.producers = {};
+        this.consumers = {};
+
         this.initialize();
     }
 
@@ -30,44 +33,100 @@ export class SimpleMediasoupPeer {
 
     async produce(stream) {
         let track = stream.getVideoTracks()[0];
-        console.log(track);
-     
-        console.log(this.sendTransport);
+
         this.producer = await this.sendTransport.produce({
             track,
-                encodings:
-                    [
-                        { maxBitrate: 100000 },
-                        { maxBitrate: 300000 },
-                        { maxBitrate: 900000 }
-                    ],
-                codecOptions:
-                {
-                    videoGoogleStartBitrate: 1000
-                }
-            });
+            encodings:
+                [
+                    { maxBitrate: 100000 },
+                    { maxBitrate: 300000 },
+                    { maxBitrate: 900000 }
+                ],
+            codecOptions:
+            {
+                videoGoogleStartBitrate: 1000
+            }
+        });
 
-            // this.dataProducer = await this.sendTransport.produceData(
-			// 	{
-			// 		ordered        : false,
-			// 		maxRetransmits : 1,
-			// 		label          : 'chat',
-			// 		priority       : 'medium',
-			// 		appData        : { }
-			// 	});
-            //     this.dataProducer.send('hello');
-        console.log(this.producer);
+        // this.dataProducer = await this.sendTransport.produceData(
+        // 	{
+        // 		ordered        : false,
+        // 		maxRetransmits : 1,
+        // 		label          : 'chat',
+        // 		priority       : 'medium',
+        // 		appData        : { }
+        // 	});
+        //     this.dataProducer.send('hello');
         this.connectToPeer(this.socket.id);
     }
 
-    async connectToPeer(otherPeerId){
-        let consumers = await this.socket.request('mediasoupSignaling', { 'type': 'connectToPeer', data: {
-            otherPeerId: otherPeerId
-        } });
-        console.log(consumers);
+    async connectToPeer(otherPeerId) {
+        let consumers = await this.socket.request('mediasoupSignaling', {
+            'type': 'connectToPeer', data: {
+                otherPeerId: otherPeerId
+            }
+        });
+
+        console.log("Got consumers!");
+
+        consumers.forEach(async (consumerInfo) => {
+
+
+
+            const {
+                peerId,
+                producerId,
+                id,
+                kind,
+                rtpParameters,
+                type,
+                appData,
+                producerPaused
+            } = consumerInfo;
+
+            console.log('Creating consumer!');
+
+
+            const consumer = await this.recvTransport.consume(
+                {
+                    id,
+                    producerId,
+                    kind,
+                    rtpParameters,
+                    appData: { ...appData, peerId } // Trick.
+                });
+
+            console.log("Consumer:", consumer);
+
+            // Store in the map.
+            this.consumers[consumer.id] = consumer;
+
+            consumer.on('transportclose', () => {
+                delete this.consumers[consumer.id];
+            });
+
+            await this.socket.request('mediasoupSignaling', {
+                'type': 'resumeConsumer', data: {
+                    consumerId: consumer.id
+                }
+            })
+            this.showStream(consumer);
+
+        })
 
         // start consumers
     }
+
+    showStream(consumer) {
+        console.log('Creating video element for consumer');
+        const stream = new MediaStream([consumer.track]);
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        document.body.appendChild(video);
+        video.onloadedmetadata = function (e) {
+            video.play();
+          };    
+        }
 
     setupMediasoupDevice() {
         try {
@@ -79,8 +138,8 @@ export class SimpleMediasoupPeer {
 
     async connectToMediasoupRouter() {
         const routerRtpCapabilities = await this.socket.request('mediasoupSignaling', { 'type': 'getRouterRtpCapabilities' });
-        console.log(routerRtpCapabilities);
         await this.device.load({ routerRtpCapabilities });
+        console.log("Router loaded!");
     }
 
 
@@ -104,8 +163,6 @@ export class SimpleMediasoupPeer {
             sctpParameters
         } = sendTransportInfo;
 
-        console.log(sendTransportInfo);
-
         this.sendTransport = this.device.createSendTransport({
             id,
             iceParameters,
@@ -119,7 +176,7 @@ export class SimpleMediasoupPeer {
             'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
         {
             console.log('Connecting Send Transport');
-            this.socket.request('mediasoupSignaling',{
+            this.socket.request('mediasoupSignaling', {
                 type: 'connectWebRtcTransport',
                 data: {
                     transportId: this.sendTransport.id,
@@ -133,16 +190,16 @@ export class SimpleMediasoupPeer {
         this.sendTransport.on(
             'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
                 try {
-                    console.log('signaling to produce');
                     // eslint-disable-next-line no-shadow
-                    const { id } = await this.socket.request('mediasoupSignaling',{
+                    const { id } = await this.socket.request('mediasoupSignaling', {
                         type: 'produce',
                         data: {
                             transportId: this.sendTransport.id,
                             kind,
                             rtpParameters,
                             appData
-                        }});
+                        }
+                    });
 
                     callback({ id });
                 }
@@ -164,7 +221,7 @@ export class SimpleMediasoupPeer {
 
             try {
                 // eslint-disable-next-line no-shadow
-                const { id } = await this.socket.request('mediasoupSignaling',{
+                const { id } = await this.socket.request('mediasoupSignaling', {
                     type: 'produceData',
                     data: {
                         transportId: this.sendTransport.id,
@@ -172,7 +229,8 @@ export class SimpleMediasoupPeer {
                         label,
                         protocol,
                         appData
-                    }});
+                    }
+                });
 
                 callback({ id });
             }
@@ -217,12 +275,14 @@ export class SimpleMediasoupPeer {
         this.recvTransport.on(
             'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
         {
-            this.socket.request(
-                'connectWebRtcTransport',
-                {
+            console.log('Connecting Receive Transport!');
+            this.socket.request('mediasoupSignaling', {
+                type: 'connectWebRtcTransport',
+                data: {
                     transportId: this.recvTransport.id,
                     dtlsParameters
-                })
+                }
+            })
                 .then(callback)
                 .catch(errback);
         });

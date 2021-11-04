@@ -20,7 +20,7 @@ function setupSocketConnection() {
   socket.request = socketPromise(socket);
 
   socket.on("connect", () => {
-    console.log("Socket ID: ",socket.id); // x8WIv7-mJelg7on_ALbx
+    console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
   });
 
 }
@@ -34,7 +34,15 @@ async function startStream() {
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     /* use the stream */
     mediasoupPeer.produce(stream);
-  } catch(err) {
+
+    // const video = document.createElement('video');
+    // video.srcObject = stream;
+    // // Wait for the stream to load enough to play
+    // video.onloadedmetadata = function (e) {
+    //   video.play();
+    // };
+    // document.body.appendChild(video);
+  } catch (err) {
     /* handle the error */
   }
 }
@@ -46,8 +54,8 @@ function main() {
   mediasoupPeer = new SimpleMediasoupPeer(socket);
   setTimeout(() => {
     startStream()
-  },2000)
-  
+  }, 2000)
+
 }
 
 main();
