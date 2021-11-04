@@ -30,32 +30,32 @@ export class SimpleMediasoupPeer {
 
     async produce(stream) {
         let track = stream.getVideoTracks()[0];
-        // console.log(videoTrack);
+        console.log(track);
      
+        console.log(this.sendTransport);
+        this.producer = await this.sendTransport.produce({
+            track,
+                encodings:
+                    [
+                        { maxBitrate: 100000 },
+                        { maxBitrate: 300000 },
+                        { maxBitrate: 900000 }
+                    ],
+                codecOptions:
+                {
+                    videoGoogleStartBitrate: 1000
+                }
+            });
 
-        // this.producer = await this.sendTransport.produce({
-        //     track,
-        //         encodings:
-        //             [
-        //                 { maxBitrate: 100000 },
-        //                 { maxBitrate: 300000 },
-        //                 { maxBitrate: 900000 }
-        //             ],
-        //         codecOptions:
-        //         {
-        //             videoGoogleStartBitrate: 1000
-        //         }
-        //     });
-
-            this.dataProducer = await this.sendTransport.produceData(
-				{
-					ordered        : false,
-					maxRetransmits : 1,
-					label          : 'chat',
-					priority       : 'medium',
-					appData        : { }
-				});
-                this.dataProducer.send('hello');
+            // this.dataProducer = await this.sendTransport.produceData(
+			// 	{
+			// 		ordered        : false,
+			// 		maxRetransmits : 1,
+			// 		label          : 'chat',
+			// 		priority       : 'medium',
+			// 		appData        : { }
+			// 	});
+            //     this.dataProducer.send('hello');
 
     }
 
@@ -69,6 +69,7 @@ export class SimpleMediasoupPeer {
 
     async connectToMediasoupRouter() {
         const routerRtpCapabilities = await this.socket.request('mediasoupSignaling', { 'type': 'getRouterRtpCapabilities' });
+        console.log(routerRtpCapabilities);
         await this.device.load({ routerRtpCapabilities });
     }
 
@@ -92,6 +93,8 @@ export class SimpleMediasoupPeer {
             dtlsParameters,
             sctpParameters
         } = sendTransportInfo;
+
+        console.log(sendTransportInfo);
 
         this.sendTransport = this.device.createSendTransport({
             id,
@@ -120,6 +123,7 @@ export class SimpleMediasoupPeer {
         this.sendTransport.on(
             'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
                 try {
+                    console.log('signaling to produce');
                     // eslint-disable-next-line no-shadow
                     const { id } = await this.socket.request('mediasoupSignaling',{
                         type: 'produce',

@@ -48,7 +48,7 @@ class MediasoupManager {
             console.error('mediasoup worker died (this should never happen)')
             process.exit(1)
         })
-        const router = await worker.createRouter(config.mediasoup.routerOptions.mediaCodecs);
+        const router = await worker.createRouter({mediaCodecs: config.mediasoup.routerOptions.mediaCodecs});
         return { worker, router };
     }
 
@@ -58,6 +58,7 @@ class MediasoupManager {
         switch (request.type) {
             case "getRouterRtpCapabilities":
                 {
+                    console.log(this.routers[this.peers[id].routerIndex].rtpCapabilities)
                     callback(this.routers[this.peers[id].routerIndex].rtpCapabilities);
                     break;
                 }
@@ -89,23 +90,47 @@ class MediasoupManager {
 
             case "produce":
                 {
-                    console.log('Producer:',request.data);
+                    console.log('Producer:', request.data);
+                    const producer = await this.createProducer(id, request.data);
+                    callback({id: producer.id});
                 }
-            
+
             case "produceData":
                 {
                     console.log("produce data", request.data);
-                    
+
                 }
         }
     }
 
-    getTransportForPeer(id, transportId){
+    getTransportForPeer(id, transportId) {
         return this.peers[id].transports[id];
     }
 
     getRouterForPeer(id) {
         return this.routers[this.peers[id].routerIndex];
+    }
+
+    async createProducer(id, data) {
+        const { transportId, kind, rtpParameters } = data;
+
+        const transport = this.getTransportForPeer(id, transportId);
+
+        if (!transport)
+            throw new Error(`transport with id "${transportId}" not found`);
+
+
+        const producer = await transport.produce(
+            {
+                kind,
+                rtpParameters,
+                appData
+                // keyFrameRequestDelay: 5000
+            });
+
+        this.peers[id].producers[producer.id] = producer;
+
+        return producer;
     }
 
     async createTransportForPeer(id, data) {
@@ -115,7 +140,7 @@ class MediasoupManager {
             sctpCapabilities
         } = data;
 
-        
+
 
         const webRtcTransportOptions =
         {
