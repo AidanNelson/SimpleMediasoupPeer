@@ -18,7 +18,7 @@ class MediasoupManager {
         this.workers = [];
         this.routers = [];
 
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 1; i++) {
             let { worker, router } = await this.startMediasoupWorker();
             this.workers[i] = worker;
             this.routers[i] = router;

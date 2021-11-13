@@ -31,23 +31,37 @@ export class SimpleMediasoupPeer {
         await this.createRecvTransport();
     }
 
-    async produce(stream) {
-        let track = stream.getVideoTracks()[0];
+    async addStream(stream) {
+        let videoTracks = stream.getVideoTracks();
+        let audioTracks = stream.getAudioTracks();
 
-        this.producer = await this.sendTransport.produce({
-            track,
-            encodings:
-                [
-                    { maxBitrate: 100000 },
-                    { maxBitrate: 300000 },
-                    { maxBitrate: 900000 }
-                ],
-            codecOptions:
-            {
-                videoGoogleStartBitrate: 1000
-            }
-        });
+        for (let i in videoTracks){
+            this.producer = await this.sendTransport.produce({
+                track: videoTracks[i],
+                encodings:
+                    [
+                        { maxBitrate: 100000 },
+                        { maxBitrate: 300000 },
+                        { maxBitrate: 900000 }
+                    ],
+                codecOptions:
+                {
+                    videoGoogleStartBitrate: 1000
+                }
+            });
+        }
+        for (let i in audioTracks){
+            this.producer = await this.sendTransport.produce({
+                track: audioTracks[i],
+                codecOptions :
+					{
+						opusStereo : 1,
+						opusDtx    : 1
+					}
+            });
+        }
 
+      
         // this.dataProducer = await this.sendTransport.produceData(
         // 	{
         // 		ordered        : false,
@@ -57,22 +71,21 @@ export class SimpleMediasoupPeer {
         // 		appData        : { }
         // 	});
         //     this.dataProducer.send('hello');
-        this.connectToPeer(this.socket.id);
+        // this.connectToPeer(this.socket.id);
     }
 
     async connectToPeer(otherPeerId) {
-        let consumers = await this.socket.request('mediasoupSignaling', {
+        let consumersInfo = await this.socket.request('mediasoupSignaling', {
             'type': 'connectToPeer', data: {
                 otherPeerId: otherPeerId
             }
         });
 
-        console.log("Got consumers!");
+        console.log("Got consumersInfo:",consumersInfo);
 
-        consumers.forEach(async (consumerInfo) => {
+        let tracks = [];
 
-
-
+        for (let consumerInfo of consumersInfo) {
             const {
                 peerId,
                 producerId,
@@ -85,7 +98,6 @@ export class SimpleMediasoupPeer {
             } = consumerInfo;
 
             console.log('Creating consumer!');
-
 
             const consumer = await this.recvTransport.consume(
                 {
@@ -110,11 +122,13 @@ export class SimpleMediasoupPeer {
                     consumerId: consumer.id
                 }
             })
-            this.showStream(consumer);
 
-        })
+            tracks.push(consumer.track);
+            // this.showStream(consumer);
 
-        // start consumers
+        }
+
+        return tracks;
     }
 
     showStream(consumer) {

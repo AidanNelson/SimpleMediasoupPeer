@@ -28,15 +28,13 @@ let clients = {};
 function setupSocketServer(mediasoupManager) {
     io.on('connection', (socket) => {
         console.log('User ' + socket.id + ' connected, there are ' + io.engine.clientsCount + ' clients connected')
+        
+        socket.emit('clients', Object.keys(clients));
+        socket.broadcast.emit('clientConnected', socket.id);
+        
+        // then add to our clients object
         clients[socket.id] = {}; // store initial client state here
-        console.log(clients);
-
-        socket.emit('clients', clients);
-
-        io.sockets.emit('clientConnected', {
-            id: socket.id,
-            client: clients[socket.id]
-        });
+        
 
         socket.on('disconnect', () => {
             mediasoupManager.removePeer(socket.id);
