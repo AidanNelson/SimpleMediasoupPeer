@@ -109,6 +109,14 @@ class MediasoupManager {
                     break;
                 }
 
+            case "pauseConsumer":
+                {
+                    const consumer = this.getConsumer(id, request.data.consumerId);
+                    await consumer.pause();
+                    callback({ paused: true })
+                    break;
+                }
+
             case "resumeConsumer":
                 {
                     console.log("Resuming consumer!");

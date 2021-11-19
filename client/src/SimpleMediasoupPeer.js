@@ -178,7 +178,7 @@ export class SimpleMediasoupPeer {
         if (consumer) {
             console.log('pause consumer', consumer.appData.peerId, consumer.appData.label);
             try {
-                // await this.socket.request('pause-consumer', { consumerId: consumer.id });
+                await this.socket.request('pauseConsumer', { consumerId: consumer.id });
                 await consumer.pause();
             } catch (e) {
                 console.error(e);
