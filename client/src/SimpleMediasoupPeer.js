@@ -174,6 +174,38 @@ export class SimpleMediasoupPeer {
         return tracks;
     }
 
+    async pauseConsumer(consumer) {
+        if (consumer) {
+            console.log('pause consumer', consumer.appData.peerId, consumer.appData.label);
+            try {
+                // await this.socket.request('pause-consumer', { consumerId: consumer.id });
+                await consumer.pause();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    }
+
+    getConsumersForPeer(id){
+        let consumers = [];
+        for (const consumerId in this.consumers){
+            const consumer = this.consumers[consumerId];
+            if (consumer.appData.peerId === id){
+                consumers.push(consumer);
+            }
+        }
+        return consumers;
+    }
+
+    pausePeer(id){
+        let consumers = this.getConsumersForPeer(id);
+        consumers.forEach(async (consumer) => {
+            if (!consumer.paused){
+                await this.pauseConsumer(consumer);
+            }
+        })
+    }
+
     showStream(consumer) {
         console.log('Creating video element for consumer');
         const stream = new MediaStream([consumer.track]);

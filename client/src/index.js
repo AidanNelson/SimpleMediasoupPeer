@@ -24,26 +24,29 @@ function setupSocketConnection() {
   });
 
   socket.on("clients", (ids) => {
-    console.log(ids);
-    for (let i = 0; i < ids.length; i++) {
-      clients[ids[i]] = {};
-    }
     console.log("Got initial clients!");
-    console.log("Clients:", clients);
+    for (let i = 0; i < ids.length; i++) {
+      addPeer(ids[i]);
+    }
   });
 
   socket.on("clientConnected", (id) => {
-    clients[id] = {};
-    console.log("Client conencted!");
-    console.log("Clients:", clients);
+    addPeer(id);
   });
 
   socket.on("clientDisconnected", (id) => {
-
-    delete clients[id];
-    console.log("Client disconencted!");
-    console.log("Clients:", clients);
+    removePeer(id);
   });
+}
+
+function addPeer(id) {
+  console.log("Client conencted: ", id);
+  clients[id] = {};
+}
+
+function removePeer(id) {
+  console.log("Client disconencted:", id);
+  delete clients[id];
 }
 
 
@@ -58,7 +61,6 @@ async function startCamera() {
     mediasoupPeer.addTrack(track, 'camera');
     // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
 
-    // mediasoupPeer.addStream(stream);
 
   } catch (err) {
     console.error(err)
@@ -80,6 +82,10 @@ async function connectToPeer(id) {
   document.body.appendChild(video);
 }
 
+async function pausePeer(id){
+  mediasoupPeer.pausePeer(id);
+}
+
 
 function main() {
   console.log('~~~~~~~~~~~~~~~~~');
@@ -89,11 +95,19 @@ function main() {
   document.getElementById("startCamera").addEventListener("click", () => {
     startCamera();
   }, false);
+
   document.getElementById("connectToPeers").addEventListener("click", () => {
     for (let id in clients) {
       connectToPeer(id);
     }
   }, false);
+ 
+  document.getElementById("pausePeers").addEventListener("click", () => {
+    for (let id in clients) {
+      pausePeer(id);
+    }
+  }, false);
+  
 }
 
 main();
