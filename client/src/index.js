@@ -26,7 +26,7 @@ function setupSocketConnection() {
   socket.on("clients", (ids) => {
     console.log(ids);
     for (let i = 0; i < ids.length; i++) {
-      clients[i] = {};
+      clients[ids[i]] = {};
     }
     console.log("Got initial clients!");
     console.log("Clients:", clients);
@@ -53,7 +53,12 @@ async function startCamera() {
   try {
     let constraints = { audio: false, video: true }
     stream = await navigator.mediaDevices.getUserMedia(constraints);
-    mediasoupPeer.addStream(stream);
+
+    let track = stream.getVideoTracks()[0]
+    mediasoupPeer.addTrack(track, 'camera');
+    // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
+
+    // mediasoupPeer.addStream(stream);
 
   } catch (err) {
     console.error(err)
@@ -62,6 +67,7 @@ async function startCamera() {
 
 async function connectToPeer(id) {
   let tracks = await mediasoupPeer.connectToPeer(id);
+  console.log(tracks);
 
   const stream = new MediaStream(tracks);
 

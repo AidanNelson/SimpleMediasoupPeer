@@ -29,19 +29,58 @@ export class SimpleMediasoupPeer {
         await this.connectToMediasoupRouter();
         await this.createSendTransport();
         await this.createRecvTransport();
+        // this.setupDataProducer();
+    }
+    async addTrack(track, label) {
+
+        if (track.kind === 'video') {
+            console.log("Adding track:", track);
+            this.producers[label] = await this.sendTransport.produce({
+                track: track,
+                encodings:
+                    [
+                        // { maxBitrate: 100000 },
+                        // { maxBitrate: 300000 },
+                        { maxBitrate: 900000 }
+                    ],
+                codecOptions:
+                {
+                    videoGoogleStartBitrate: 1000
+                },
+                appData: {
+                    label
+                }
+            });
+            console.log("done adding track:", track);
+        } else if (track.kind === 'audio') {
+            console.log("Adding track:", track);
+            this.producers[label] = await this.sendTransport.produce({
+                track: track,
+                codecOptions:
+                {
+                    opusStereo: 1,
+                    opusDtx: 1
+                },
+                appData: {
+                    label
+                }
+            });
+        }
+        console.log(this.producers);
     }
 
     async addStream(stream) {
         let videoTracks = stream.getVideoTracks();
         let audioTracks = stream.getAudioTracks();
 
-        for (let i in videoTracks){
+        for (let i in videoTracks) {
+            console.log(videoTracks[i]);
             this.producer = await this.sendTransport.produce({
                 track: videoTracks[i],
                 encodings:
                     [
-                        { maxBitrate: 100000 },
-                        { maxBitrate: 300000 },
+                        // { maxBitrate: 100000 },
+                        // { maxBitrate: 300000 },
                         { maxBitrate: 900000 }
                     ],
                 codecOptions:
@@ -50,29 +89,33 @@ export class SimpleMediasoupPeer {
                 }
             });
         }
-        for (let i in audioTracks){
+        for (let i in audioTracks) {
+            console.log(audioTracks[i]);
             this.producer = await this.sendTransport.produce({
                 track: audioTracks[i],
-                codecOptions :
-					{
-						opusStereo : 1,
-						opusDtx    : 1
-					}
+                codecOptions:
+                {
+                    opusStereo: 1,
+                    opusDtx: 1
+                }
             });
         }
-
-      
-        // this.dataProducer = await this.sendTransport.produceData(
-        // 	{
-        // 		ordered        : false,
-        // 		maxRetransmits : 1,
-        // 		label          : 'chat',
-        // 		priority       : 'medium',
-        // 		appData        : { }
-        // 	});
-        //     this.dataProducer.send('hello');
-        // this.connectToPeer(this.socket.id);
     }
+
+    pauseResumeAudio() { }
+    pauseResumeVideo() { }
+
+    async setupDataProducer() {
+        this.dataProducer = await this.sendTransport.produceData(
+            {
+                ordered: false,
+                maxRetransmits: 1,
+                label: 'chat',
+                priority: 'medium',
+                appData: {}
+            });
+    };
+    // https://stackoverflow.com/questions/35857576/webrtc-pause-and-resume-stream
 
     async connectToPeer(otherPeerId) {
         let consumersInfo = await this.socket.request('mediasoupSignaling', {
@@ -81,7 +124,7 @@ export class SimpleMediasoupPeer {
             }
         });
 
-        console.log("Got consumersInfo:",consumersInfo);
+        console.log("Got consumersInfo:", consumersInfo);
 
         let tracks = [];
 
@@ -139,8 +182,8 @@ export class SimpleMediasoupPeer {
         document.body.appendChild(video);
         video.onloadedmetadata = function (e) {
             video.play();
-          };    
-        }
+        };
+    }
 
     setupMediasoupDevice() {
         try {
@@ -204,6 +247,7 @@ export class SimpleMediasoupPeer {
         this.sendTransport.on(
             'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
                 try {
+                    console.log('starting to produce');
                     // eslint-disable-next-line no-shadow
                     const { id } = await this.socket.request('mediasoupSignaling', {
                         type: 'produce',

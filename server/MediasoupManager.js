@@ -48,7 +48,7 @@ class MediasoupManager {
             console.error('mediasoup worker died (this should never happen)')
             process.exit(1)
         })
-        const router = await worker.createRouter({mediaCodecs: config.mediasoup.routerOptions.mediaCodecs});
+        const router = await worker.createRouter({ mediaCodecs: config.mediasoup.routerOptions.mediaCodecs });
         return { worker, router };
     }
 
@@ -91,13 +91,13 @@ class MediasoupManager {
                 {
                     console.log("Creating producer!");
                     const producer = await this.createProducer(id, request.data);
-                    callback({id: producer.id});
+                    callback({ id: producer.id });
                     break;
                 }
 
             case "produceData":
                 {
-                    // console.log("produce data", request.data);
+                    console.log("produce data");
                     break;
                 }
 
@@ -108,7 +108,7 @@ class MediasoupManager {
                     callback(consumers);
                     break;
                 }
-            
+
             case "resumeConsumer":
                 {
                     console.log("Resuming consumer!");
@@ -125,9 +125,9 @@ class MediasoupManager {
         return this.peers[id].transports[transportId];
     }
 
-    getRecvTransportForPeer(id){
+    getRecvTransportForPeer(id) {
         let transports = this.peers[id].transports;
-        for (let id in transports){
+        for (let id in transports) {
             let t = transports[id];
             if (t.appData.consuming) return t;
         }
@@ -138,84 +138,86 @@ class MediasoupManager {
         return this.routers[this.peers[id].routerIndex];
     }
 
-    getProducersForPeer(id){
+    getProducersForPeer(id) {
+        console.log('Getting producers for peer with id: ', id);
         return this.peers[id].producers;
     }
 
-    getConsumer(peerId, consumerId){
+    getConsumer(peerId, consumerId) {
         return this.peers[peerId].consumers[consumerId];
     }
 
 
-    async connectToPeer(id, producingPeerId){
+    async connectToPeer(id, producingPeerId) {
         let producers = this.getProducersForPeer(producingPeerId);
         // console.log(producers);
         let consumers = [];
-        for(let producerId in producers){
+        for (let producerId in producers) {
             let existingConsumer = this.peers[id].consumers[producerId];
             if (existingConsumer) {
                 console.log('already consuming!');
             } else {
-               let newConsumer = await this.createConsumer(id, producingPeerId, producers[producerId ]);
-               consumers.push(newConsumer);
+                let newConsumer = await this.createConsumer(id, producingPeerId, producers[producerId]);
+                consumers.push(newConsumer);
             }
         }
         return consumers;
     }
 
-    async createConsumer(consumingPeerId, producingPeerId, producer){
+    async createConsumer(consumingPeerId, producingPeerId, producer) {
         let consumer;
         try {
             let transport = this.getRecvTransportForPeer(consumingPeerId);
             consumer = await transport.consume({
-                producerId      : producer.id,
-                rtpCapabilities : this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
-                paused          : true
+                producerId: producer.id,
+                rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
+                paused: true,
+                appData: producer.appData
             })
-        } catch(err){
+        } catch (err) {
             console.log(err);
         }
 
 
-		this.peers[consumingPeerId].consumers[consumer.id] =  consumer;
+        this.peers[consumingPeerId].consumers[consumer.id] = consumer;
 
-		// Set Consumer events.
-		// consumer.on('transportclose', () =>
-		// {
-		// 	// Remove from its map.
-		// 	consumerPeer.data.consumers.delete(consumer.id);
-		// });
+        // Set Consumer events.
+        // consumer.on('transportclose', () =>
+        // {
+        // 	// Remove from its map.
+        // 	consumerPeer.data.consumers.delete(consumer.id);
+        // });
 
-		// consumer.on('producerclose', () =>
-		// {
-		// 	// Remove from its map.
-		// 	consumerPeer.data.consumers.delete(consumer.id);
+        // consumer.on('producerclose', () =>
+        // {
+        // 	// Remove from its map.
+        // 	consumerPeer.data.consumers.delete(consumer.id);
 
-		// 	consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
-		// 		.catch(() => {});
-		// });
+        // 	consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
+        // 		.catch(() => {});
+        // });
 
-		// consumer.on('producerpause', () =>
-		// {
-		// 	consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
-		// 		.catch(() => {});
-		// });
+        // consumer.on('producerpause', () =>
+        // {
+        // 	consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
+        // 		.catch(() => {});
+        // });
 
-		// consumer.on('producerresume', () =>
-		// {
-		// 	consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
-		// 		.catch(() => {});
-		// });
+        // consumer.on('producerresume', () =>
+        // {
+        // 	consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
+        // 		.catch(() => {});
+        // });
 
         let newConsumerInfo = {
-            peerId         : producingPeerId,
-            producerId     : producer.id,
-            id             : consumer.id,
-            kind           : consumer.kind,
-            rtpParameters  : consumer.rtpParameters,
-            type           : consumer.type,
-            appData        : producer.appData,
-            producerPaused : consumer.producerPaused
+            peerId: producingPeerId,
+            producerId: producer.id,
+            id: consumer.id,
+            kind: consumer.kind,
+            rtpParameters: consumer.rtpParameters,
+            type: consumer.type,
+            appData: producer.appData,
+            producerPaused: consumer.producerPaused
         };
         return newConsumerInfo;
     }
@@ -223,7 +225,7 @@ class MediasoupManager {
 
 
     async createProducer(id, data) {
-        const { transportId, kind, rtpParameters } = data;
+        const { transportId, kind, rtpParameters, appData } = data;
 
         const transport = this.getTransportForPeer(id, transportId);
 
@@ -235,6 +237,7 @@ class MediasoupManager {
             {
                 kind,
                 rtpParameters,
+                appData
                 // keyFrameRequestDelay: 5000
             });
 
