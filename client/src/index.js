@@ -71,18 +71,21 @@ async function connectToPeer(id) {
   let tracks = await mediasoupPeer.connectToPeer(id);
   console.log(tracks);
 
-  const stream = new MediaStream(tracks);
 
+
+  const stream = new MediaStream(tracks);
   const video = document.createElement('video');
   document.body.appendChild(video);
+
   video.srcObject = stream;
   // Wait for the stream to load enough to play
   video.onloadedmetadata = function (e) {
     video.play();
   };
+
 }
 
-async function pausePeer(id){
+async function pausePeer(id) {
   mediasoupPeer.pausePeer(id);
 }
 
@@ -101,7 +104,7 @@ function main() {
       connectToPeer(id);
     }
   }, false);
- 
+
   document.getElementById("pausePeers").addEventListener("click", () => {
     for (let id in clients) {
       pausePeer(id);

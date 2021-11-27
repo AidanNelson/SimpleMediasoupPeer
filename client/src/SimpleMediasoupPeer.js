@@ -185,11 +185,11 @@ export class SimpleMediasoupPeer {
             } = consumerInfo;
 
 
-            let consumer = this.consumers[peerId][appData.label];
+            let consumer = this.consumers[peerId][producerId];
 
             if (!consumer) {
 
-                console.log('Creating consumer!');
+                console.log(`Creating consumer with ID ${id} for producer with ID ${producerId}`);
 
                 consumer = await this.recvTransport.consume(
                     {
@@ -200,15 +200,23 @@ export class SimpleMediasoupPeer {
                         appData: { ...appData, peerId }
                     });
 
-                this.consumers[peerId][appData.label] = consumer;
+                console.log("Created consumer:", consumer);
+
+                this.consumers[peerId][producerId] = consumer;
 
                 consumer.on('transportclose', () => {
                     delete this.consumers[consumer.id];
                 });
+
+                // we always need to send this out for a newly created consumer
+                await this.socket.request('mediasoupSignaling', {
+                    'type': 'resumeConsumer', data: {
+                        producerId: consumer.producerId
+                    }
+                });
             }
 
-            this.resumeConsumer(consumer);
-
+            await this.resumeConsumer(consumer);
             tracks.push(consumer.track);
         }
 
@@ -241,13 +249,33 @@ export class SimpleMediasoupPeer {
 
     }
 
+    async pausePeer(producingPeerId) {
+        const consumers = this.consumers[producingPeerId];
+
+        for (const consumerId of consumers) {
+            const consumer = consumers[consumerId];
+            if (!consumer.paused) {
+                console.log('Pausing consumer!');
+                await this.socket.request('mediasoupSignaling', {
+                    'type': 'pauseConsumer', data: {
+                        producerId: consumer.producerId
+                    }
+                });
+            } else {
+                console.log('Consumer already paused!');
+            }
+        }
+    }
+
     async resumeConsumer(consumer) {
         if (consumer.paused) {
             await this.socket.request('mediasoupSignaling', {
                 'type': 'resumeConsumer', data: {
-                    consumerId: consumer.id
+                    producerId: consumer.producerId
                 }
             });
+        } else {
+            console.log('Already playing!');
         }
     }
 
