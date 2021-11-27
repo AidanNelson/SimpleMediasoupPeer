@@ -74,12 +74,12 @@ async function connectToPeer(id) {
   const stream = new MediaStream(tracks);
 
   const video = document.createElement('video');
+  document.body.appendChild(video);
   video.srcObject = stream;
   // Wait for the stream to load enough to play
   video.onloadedmetadata = function (e) {
     video.play();
   };
-  document.body.appendChild(video);
 }
 
 async function pausePeer(id){
@@ -107,7 +107,7 @@ function main() {
       pausePeer(id);
     }
   }, false);
-  
+
 }
 
 main();
