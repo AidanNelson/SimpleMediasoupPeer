@@ -17,22 +17,22 @@ this.peers = {
         },
         producers: {
              producerId1: {
-                0: producerObj,
-                1: producerObj,
-                2: producerObj,
-                3: producerObj
+                routerIndex0: producerObj,
+                routerIndex1: producerObj,
+                routerIndex2: producerObj,
+                routerIndex3: producerObj
             },
             producerId2: {
-                0: producerObj,
-                1: producerObj,
-                2: producerObj,
-                3: producerObj
+                routerIndex0: producerObj,
+                routerIndex1: producerObj,
+                routerIndex2: producerObj,
+                routerIndex3: producerObj
             },
             producerId3: {
-                0: producerObj,
-                1: producerObj,
-                2: producerObj,
-                3: producerObj
+                routerIndex0: producerObj,
+                routerIndex1: producerObj,
+                routerIndex2: producerObj,
+                routerIndex3: producerObj
             }
         },
         consumers: {
@@ -59,7 +59,7 @@ class MediasoupManager {
             this.addPeer(socket);
 
             socket.on('disconnect', () => {
-                this.removePeer(socket);
+                this.removePeer(socket.id);
             })
             socket.on('mediasoupSignaling', (data, callback) => {
                 this.handleSocketRequest(socket.id, data, callback);
@@ -74,6 +74,8 @@ class MediasoupManager {
         //     console.log(this.peers);
         // }, 10000);
     }
+
+    
 
     async initialize() {
         this.workers = [];
@@ -103,6 +105,10 @@ class MediasoupManager {
         };
     }
     removePeer(id) {
+        for (const transportId in this.peers[id].transports){
+            console.log('Closing transport');
+            this.peers[id].transports[transportId].close();
+        }
         delete this.peers[id];
     }
 

@@ -49,6 +49,8 @@ export class SimpleMediasoupPeer {
         await this.createRecvTransport();
         // this.setupDataProducer();
     }
+
+
     async addTrack(track, label) {
 
         if (track.kind === 'video') {
@@ -70,9 +72,6 @@ export class SimpleMediasoupPeer {
                 }
             });
 
-            setTimeout(() => {
-                this.producers[label].close();
-            },5000);
             console.log("done adding track:", track);
         } else if (track.kind === 'audio') {
             console.log("Adding track:", track);
@@ -91,38 +90,38 @@ export class SimpleMediasoupPeer {
         console.log(this.producers);
     }
 
-    async addStream(stream) {
-        let videoTracks = stream.getVideoTracks();
-        let audioTracks = stream.getAudioTracks();
+    // async addStream(stream) {
+    //     let videoTracks = stream.getVideoTracks();
+    //     let audioTracks = stream.getAudioTracks();
 
-        for (let i in videoTracks) {
-            console.log(videoTracks[i]);
-            this.producer = await this.sendTransport.produce({
-                track: videoTracks[i],
-                encodings:
-                    [
-                        // { maxBitrate: 100000 },
-                        // { maxBitrate: 300000 },
-                        { maxBitrate: 900000 }
-                    ],
-                codecOptions:
-                {
-                    videoGoogleStartBitrate: 1000
-                }
-            });
-        }
-        for (let i in audioTracks) {
-            console.log(audioTracks[i]);
-            this.producer = await this.sendTransport.produce({
-                track: audioTracks[i],
-                codecOptions:
-                {
-                    opusStereo: 1,
-                    opusDtx: 1
-                }
-            });
-        }
-    }
+    //     for (let i in videoTracks) {
+    //         console.log(videoTracks[i]);
+    //         this.producer = await this.sendTransport.produce({
+    //             track: videoTracks[i],
+    //             encodings:
+    //                 [
+    //                     // { maxBitrate: 100000 },
+    //                     // { maxBitrate: 300000 },
+    //                     { maxBitrate: 900000 }
+    //                 ],
+    //             codecOptions:
+    //             {
+    //                 videoGoogleStartBitrate: 1000
+    //             }
+    //         });
+    //     }
+    //     for (let i in audioTracks) {
+    //         console.log(audioTracks[i]);
+    //         this.producer = await this.sendTransport.produce({
+    //             track: audioTracks[i],
+    //             codecOptions:
+    //             {
+    //                 opusStereo: 1,
+    //                 opusDtx: 1
+    //             }
+    //         });
+    //     }
+    // }
 
     async handleSocketRequest(request, callback) {
         switch (request.type) {
