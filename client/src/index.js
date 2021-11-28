@@ -71,59 +71,57 @@ async function connectToPeer(id) {
   let tracks = await mediasoupPeer.connectToPeer(id);
   console.log(tracks);
 
-  for (const track of tracks){
-     let el = document.getElementById(id + "_" + track.kind);
-
-    // set some attributes on our audio and video elements to make
-    // mobile Safari happy. note that for audio to play you need to be
-    // capturing from the mic/camera
+  for (const track of tracks) {
+    let el = document.getElementById(id + "_" + track.kind);
     if (track.kind === 'video') {
-        if (el == null) {
-            console.log('Creating video element for user with ID: ' + id);
-            el = document.createElement('video');
-            el.id = id + "_" + track.kind;
-            el.autoplay = true;
-            el.muted = true; 
-            // el.style = 'visibility: hidden;';
-            document.body.appendChild(el);
-            el.setAttribute('playsinline', true);
-            document.body.appendChild(el);
-        }
+      if (el == null) {
+        console.log('Creating video element for client with ID: ' + id);
+        el = document.createElement('video');
+        el.id = id + "_" + track.kind;
+        el.autoplay = true;
+        el.muted = true;
+        // el.style = 'visibility: hidden;';
+        document.body.appendChild(el);
+        el.setAttribute('playsinline', true);
+        document.body.appendChild(el);
+      }
 
-        console.log('Updating video source for user with ID: ' + id);
+      console.log('Updating video source for client with ID: ' + id);
 
-        let sourceStream = new MediaStream([track]);
-        el.srcObject = sourceStream;
+      el.srcObject = new MediaStream([track]);
 
+      el.onloadedmetadata = (e) => {
         el.play()
-            .catch((e) => {
-                console.log('Play video error: ' + e);
-                err(e);
-            });
-    } 
-    if (track.kind === "audio"){
-        if (el == null) {
-            console.log('Creating audio element for user with ID: ' + id);
-            el = document.createElement('audio');
-            el.id = id + "_" + track.kind;
-            document.body.appendChild(el);
-            el.setAttribute('playsinline', true);
-            el.setAttribute('autoplay', true);
-        }
+          .catch((e) => {
+            console.log('Play video error: ' + e);
+          });
+      };
 
-        console.log('Updating <audio> source object for client with ID: ' + id);
-        el.srcObject = new MediaStream([track]);
-        el.volume = 0; 
+    }
+    if (track.kind === "audio") {
+      if (el == null) {
+        console.log('Creating audio element for client with ID: ' + id);
+        el = document.createElement('audio');
+        el.id = id + "_" + track.kind;
+        document.body.appendChild(el);
+        el.setAttribute('playsinline', true);
+        el.setAttribute('autoplay', true);
+      }
 
+      console.log('Updating <audio> source object for client with ID: ' + id);
+      el.srcObject = new MediaStream([track]);
+      el.volume = 0;
+
+      el.onloadedmetadata = (e) => {
         el.play()
-            .catch((e) => {
-                console.log('Play audio error: ' + e);
-                err(e);
-            });
+          .catch((e) => {
+            console.log('Play video error: ' + e);
+          });
+      };
     }
   }
 
- 
+
 
   // const stream = new MediaStream(tracks);
 
