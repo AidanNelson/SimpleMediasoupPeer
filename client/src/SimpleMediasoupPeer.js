@@ -31,7 +31,7 @@ export class SimpleMediasoupPeer {
         this.device = null;
         this.socket = socket;
         this.socket.on('mediasoupSignaling', (data, callback) => {
-            this.handleSocketRequest(socket.id, data, callback);
+            this.handleSocketRequest(data, callback);
         });
 
         this.producers = {};
@@ -69,6 +69,10 @@ export class SimpleMediasoupPeer {
                     label
                 }
             });
+
+            setTimeout(() => {
+                this.producers[label].close();
+            },5000);
             console.log("done adding track:", track);
         } else if (track.kind === 'audio') {
             console.log("Adding track:", track);
@@ -120,12 +124,18 @@ export class SimpleMediasoupPeer {
         }
     }
 
-    async handleSocketRequest(id, request, callback) {
+    async handleSocketRequest(request, callback) {
         switch (request.type) {
 
-            case "produceData":
+            case "consumerClosed":
                 {
-                    console.log("produce data");
+                    console.log("Server-side consumerClosed, closing client side consumer.");
+                    const {producingPeerId, producerId } = request.data;
+
+                    this.consumers[producingPeerId][producerId].close();
+                    this.consumers[producingPeerId].delete(producerId);
+                    callback();
+                    
                     break;
                 }
 

@@ -57,7 +57,7 @@ class MediasoupManager {
 
         io.on('connection', (socket) => {
             this.addPeer(socket);
-                
+
             socket.on('disconnect', () => {
                 this.removePeer(socket);
             })
@@ -94,8 +94,6 @@ class MediasoupManager {
     }
 
     addPeer(socket) {
-       
-
         this.peers[socket.id] = {
             socket: socket,
             routerIndex: this.getNewPeerRouterIndex(),
@@ -217,8 +215,8 @@ class MediasoupManager {
                     console.log("Resuming consumer!");
 
                     const consumer = this.getConsumer(id, request.data.producerId);
-                    console.log('consumerID: ',consumer.id);
-                    console.log('producerID:',consumer.producerId);
+                    console.log('consumerID: ', consumer.id);
+                    console.log('producerID:', consumer.producerId);
                     await consumer.resume();
                     callback();
 
@@ -335,7 +333,7 @@ class MediasoupManager {
                 }
 
                 let newConsumer = await this.createConsumer(consumindPeerId, producingPeerId, producerOrPipeProducer);
-                
+
                 // add new consumer to the consuming peer's consumers object:
                 this.peers[consumindPeerId].consumers[producerId] = newConsumer;
                 consumers.push(newConsumer);
@@ -350,6 +348,7 @@ class MediasoupManager {
         let consumer;
         try {
             let transport = this.getRecvTransportForPeer(consumingPeerId);
+            
             consumer = await transport.consume({
                 producerId: producer.id,
                 rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
@@ -360,44 +359,40 @@ class MediasoupManager {
             console.log(err);
         }
 
-        console.log('consumer paused after creation? ',consumer.paused);
-        console.log('consumerID: ',consumer.id);
-        console.log('producerID:',consumer.producerId);
+        console.log('consumer paused after creation? ', consumer.paused);
+        console.log('consumerID: ', consumer.id);
+        console.log('producerID:', consumer.producerId);
 
         this.peers[consumingPeerId].consumers[producer.id] = consumer;
 
         // Set Consumer events.
-        consumer.on('transportclose', () =>
-        {
-        	// Remove from its map.
-        	this.peers[consumingPeerId].consumers.delete(producer.id);
+        consumer.on('transportclose', () => {
+            // Remove from its map.
+            this.peers[consumingPeerId].consumers.delete(producer.id);
         });
 
-        consumer.on('producerclose', () =>
-        {
-        	// Remove from its map.
-        	this.peers[consumingPeerId].consumers.delete(producer.id);
-            // this.peers[consumingPeerId].socket.emit('mediasoupSignaling', {
-            //     type: 'consumerClosed',
-            //     producingPeerId: consumer
-            //     producerId: consumer.producerId
-            // })
+        consumer.on('producerclose', () => {
+            // Remove from its map.
+            this.peers[consumingPeerId].consumers.delete(producer.id);
+            this.peers[consumingPeerId].socket.emit('mediasoupSignaling', {
+                type: 'consumerClosed',
+                producingPeerId: producer.appData.peerId,
+                producerId: producer.id
+            })
 
-        	// consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
-        	// 	.catch(() => {});
+            // consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
+            // 	.catch(() => {});
         });
 
-        consumer.on('producerpause', () =>
-        {
-        	// consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
-        	// 	.catch(() => {});
-        });
+        // consumer.on('producerpause', () => {
+            // consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
+            // 	.catch(() => {});
+        // });
 
-        consumer.on('producerresume', () =>
-        {
-        	// consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
-        	// 	.catch(() => {});
-        });
+        // consumer.on('producerresume', () => {
+            // consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
+            // 	.catch(() => {});
+        // });
 
         return consumer;
 
@@ -407,7 +402,11 @@ class MediasoupManager {
 
 
     async createProducer(id, data) {
-        const { transportId, kind, rtpParameters, appData } = data;
+        const { transportId, kind, rtpParameters } = data;
+        let { appData } = data;
+        appData = { ...appData, peerId: id };
+        console.log(appData);
+
 
         const transport = this.getTransportForPeer(id, transportId);
 
