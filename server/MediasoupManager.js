@@ -192,7 +192,7 @@ class MediasoupManager {
 
             case "pauseConsumer":
                 {
-                    const consumer = this.getConsumer(id, request.data.consumerId);
+                    const consumer = this.getConsumer(id, request.data.producerId);
                     await consumer.pause();
                     callback({ paused: true })
                     break;
