@@ -71,21 +71,78 @@ async function connectToPeer(id) {
   let tracks = await mediasoupPeer.connectToPeer(id);
   console.log(tracks);
 
-  const stream = new MediaStream(tracks);
+  for (const track of tracks) {
+    let el = document.getElementById(id + "_" + track.kind);
+    if (track.kind === 'video') {
+      if (el == null) {
+        console.log('Creating video element for client with ID: ' + id);
+        el = document.createElement('video');
+        el.id = id + "_" + track.kind;
+        el.autoplay = true;
+        el.muted = true;
+        // el.style = 'visibility: hidden;';
+        document.body.appendChild(el);
+        el.setAttribute('playsinline', true);
+        document.body.appendChild(el);
+      }
 
-  const video = document.createElement('video');
-  video.srcObject = stream;
-  // Wait for the stream to load enough to play
-  video.onloadedmetadata = function (e) {
-    video.play();
-  };
-  document.body.appendChild(video);
+      // TODO only update tracks if the track is different
+      console.log('Updating video source for client with ID: ' + id);
+      el.srcObject = null;
+      el.srcObject = new MediaStream([track]);
+
+      el.onloadedmetadata = (e) => {
+        el.play()
+          .catch((e) => {
+            console.log('Play video error: ' + e);
+          });
+      };
+
+    }
+    if (track.kind === "audio") {
+      if (el == null) {
+        console.log('Creating audio element for client with ID: ' + id);
+        el = document.createElement('audio');
+        el.id = id + "_" + track.kind;
+        document.body.appendChild(el);
+        el.setAttribute('playsinline', true);
+        el.setAttribute('autoplay', true);
+      }
+
+      console.log('Updating <audio> source object for client with ID: ' + id);
+      el.srcObject = null;
+      el.srcObject = new MediaStream([track]);
+      el.volume = 0;
+
+      el.onloadedmetadata = (e) => {
+        el.play()
+          .catch((e) => {
+            console.log('Play video error: ' + e);
+          });
+      };
+    }
+  }
+
+
+
+  // const stream = new MediaStream(tracks);
+
+  //  videoEl = document.getElementById(id + "_video");
+
+  // if (!videoEl){
+  //   videoEl =   document.createElement('video');
+  //   videoEl.id = id + "_video"
+
+  // }
+  // document.body.appendChild(video);
+
+  // video.srcObject = stream;
+  // // Wait for the stream to load enough to play
+  // video.onloadedmetadata = function (e) {
+  //   video.play();
+  // };
+
 }
-
-async function pausePeer(id){
-  mediasoupPeer.pausePeer(id);
-}
-
 
 function main() {
   console.log('~~~~~~~~~~~~~~~~~');
@@ -101,13 +158,18 @@ function main() {
       connectToPeer(id);
     }
   }, false);
- 
+
   document.getElementById("pausePeers").addEventListener("click", () => {
     for (let id in clients) {
-      pausePeer(id);
+      mediasoupPeer.pausePeer(id);
     }
   }, false);
-  
+  document.getElementById("resumePeers").addEventListener("click", () => {
+    for (let id in clients) {
+      mediasoupPeer.resumePeer(id);
+    }
+  }, false);
+
 }
 
 main();
