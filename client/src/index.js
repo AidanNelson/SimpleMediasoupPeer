@@ -86,8 +86,9 @@ async function connectToPeer(id) {
         document.body.appendChild(el);
       }
 
+      // TODO only update tracks if the track is different
       console.log('Updating video source for client with ID: ' + id);
-
+      el.srcObject = null;
       el.srcObject = new MediaStream([track]);
 
       el.onloadedmetadata = (e) => {
@@ -109,6 +110,7 @@ async function connectToPeer(id) {
       }
 
       console.log('Updating <audio> source object for client with ID: ' + id);
+      el.srcObject = null;
       el.srcObject = new MediaStream([track]);
       el.volume = 0;
 
