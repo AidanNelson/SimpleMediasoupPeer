@@ -75,7 +75,7 @@ class MediasoupManager {
         // }, 10000);
     }
 
-    
+
 
     async initialize() {
         this.workers = [];
@@ -105,7 +105,7 @@ class MediasoupManager {
         };
     }
     removePeer(id) {
-        for (const transportId in this.peers[id].transports){
+        for (const transportId in this.peers[id].transports) {
             console.log('Closing transport');
             this.peers[id].transports[transportId].close();
         }
@@ -228,6 +228,27 @@ class MediasoupManager {
 
                     break;
                 }
+
+            case "closeProducer":
+                {
+                    console.log("Closing producer!");
+                    console.log(this.peers[id].producers);
+
+                    const { producerId } = request.data;
+                    const producers = this.peers[id].producers[producerId];
+
+                    for (const routerIndex in producers) {
+                        const producer = producers[routerIndex];
+                        producer.close();
+                    }
+                    delete this.peers[id].producers[producerId];
+                    // this.peers[id].producers.delete(producerId);
+                    console.log(this.peers[id].producers);
+
+                    callback();
+
+                    break;
+                }
         }
     }
 
@@ -248,11 +269,6 @@ class MediasoupManager {
         return this.routers[this.peers[id].routerIndex];
     }
 
-    // getProducers(producingPeerId) {
-    //     console.log('Getting producers for peer with id: ', producingPeerId);
-    //     return this.peers[producingPeerId].producers;
-    // }
-
     getProducerIds(producingPeerId) {
         let producerIds = Object.keys(this.peers[producingPeerId].producers);
         return producerIds;
@@ -272,35 +288,6 @@ class MediasoupManager {
         }
 
     }
-
-    // async getAvailableProducers(consumingPeerId, producingPeerId) {
-    //     const consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
-    //     const producingPeerRouterIndex = this.peers[producingPeerId].routerIndex;
-
-    //     let producers = [];
-    //     if (consumingPeerRouterIndex === producingPeerRouterIndex){
-
-    //     }
-
-    // }
-
-    // async getOrCreateConsumerForPeer(id, producingPeerId, producerId) {
-    //     let producer = this.peers[producingPeerId].producers[]
-    //     let producers = this.getProducers(producingPeerId);
-    //     // console.log(producers);
-    //     let consumers = [];
-    //     for (let producerId in producers) {
-    //         let existingConsumer = this.peers[id].consumers[producerId];
-    //         if (existingConsumer) {
-    //             console.log('already consuming!');
-    //             consumers.push(existingConsumer);
-    //         } else {
-    //             let newConsumer = await this.createConsumer(id, producingPeerId, producers[producerId]);
-    //             consumers.push(newConsumer);
-    //         }
-    //     }
-    //     return consumers;
-    // }
 
     async getOrCreateConsumersForPeer(consumindPeerId, producingPeerId) {
         let producerIds = this.getProducerIds(producingPeerId);
@@ -354,7 +341,7 @@ class MediasoupManager {
         let consumer;
         try {
             let transport = this.getRecvTransportForPeer(consumingPeerId);
-            
+
             consumer = await transport.consume({
                 producerId: producer.id,
                 rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
@@ -378,26 +365,30 @@ class MediasoupManager {
         });
 
         consumer.on('producerclose', () => {
-            // Remove from its map.
-            this.peers[consumingPeerId].consumers.delete(producer.id);
+            console.log('producer closed!');
+
             this.peers[consumingPeerId].socket.emit('mediasoupSignaling', {
                 type: 'consumerClosed',
-                producingPeerId: producer.appData.peerId,
-                producerId: producer.id
+                data: {
+                    producingPeerId: producer.appData.peerId,
+                    producerId: producer.id
+                }
             })
+
+            delete this.peers[consumingPeerId].consumers[producer.id];
 
             // consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
             // 	.catch(() => {});
         });
 
         // consumer.on('producerpause', () => {
-            // consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
-            // 	.catch(() => {});
+        // consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
+        // 	.catch(() => {});
         // });
 
         // consumer.on('producerresume', () => {
-            // consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
-            // 	.catch(() => {});
+        // consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
+        // 	.catch(() => {});
         // });
 
         return consumer;

@@ -8,6 +8,7 @@ const socketPromise = require('./socket.io-promise').promise;
 let socket;
 let clients = {};
 let mediasoupPeer;
+let localStream;
 
 
 
@@ -64,19 +65,31 @@ function removePeer(id) {
 
 
 async function startCamera() {
-  let stream = null;
+  if (localStream) return;
 
   try {
     let constraints = { audio: false, video: true }
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    let track = stream.getVideoTracks()[0]
+    let track = localStream.getVideoTracks()[0]
     mediasoupPeer.addTrack(track, 'camera');
     // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
 
 
   } catch (err) {
     console.error(err)
+  }
+}
+
+function stopCamera(){
+  console.log('closing camera');
+  if (localStream){
+    localStream.getTracks().forEach((track)=> {
+      console.log('closing track');
+      track.stop();
+       track.dispatchEvent(new Event("ended"));
+    });
+    localStream = null;
   }
 }
 
@@ -164,6 +177,9 @@ function main() {
 
   document.getElementById("startCamera").addEventListener("click", () => {
     startCamera();
+  }, false);
+  document.getElementById("stopCamera").addEventListener("click", () => {
+    stopCamera();
   }, false);
   document.getElementById("connectToPeers").addEventListener("click", () => {
     for (let id in clients) {
