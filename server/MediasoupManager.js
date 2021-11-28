@@ -53,7 +53,20 @@ this.peers = {
 */
 
 class MediasoupManager {
-    constructor() {
+    constructor(io) {
+
+        io.on('connection', (socket) => {
+            this.addPeer(socket);
+                
+            socket.on('disconnect', () => {
+                this.removePeer(socket);
+            })
+            socket.on('mediasoupSignaling', (data, callback) => {
+                this.handleSocketRequest(socket.id, data, callback);
+            })
+        });
+
+
         this.peers = {};
         this.initialize();
 
@@ -80,8 +93,11 @@ class MediasoupManager {
         return index;
     }
 
-    addPeer(id) {
-        this.peers[id] = {
+    addPeer(socket) {
+       
+
+        this.peers[socket.id] = {
+            socket: socket,
             routerIndex: this.getNewPeerRouterIndex(),
             transports: {},
             producers: {},
@@ -103,8 +119,6 @@ class MediasoupManager {
     }
 
     async handleSocketRequest(id, request, callback) {
-        if (!this.peers[id]) this.addPeer(id);
-
         switch (request.type) {
             case "getRouterRtpCapabilities":
                 {
@@ -353,32 +367,37 @@ class MediasoupManager {
         this.peers[consumingPeerId].consumers[producer.id] = consumer;
 
         // Set Consumer events.
-        // consumer.on('transportclose', () =>
-        // {
-        // 	// Remove from its map.
-        // 	consumerPeer.data.consumers.delete(consumer.id);
-        // });
+        consumer.on('transportclose', () =>
+        {
+        	// Remove from its map.
+        	this.peers[consumingPeerId].consumers.delete(producer.id);
+        });
 
-        // consumer.on('producerclose', () =>
-        // {
-        // 	// Remove from its map.
-        // 	consumerPeer.data.consumers.delete(consumer.id);
+        consumer.on('producerclose', () =>
+        {
+        	// Remove from its map.
+        	this.peers[consumingPeerId].consumers.delete(producer.id);
+            // this.peers[consumingPeerId].socket.emit('mediasoupSignaling', {
+            //     type: 'consumerClosed',
+            //     producingPeerId: consumer
+            //     producerId: consumer.producerId
+            // })
 
-        // 	consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
-        // 		.catch(() => {});
-        // });
+        	// consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
+        	// 	.catch(() => {});
+        });
 
-        // consumer.on('producerpause', () =>
-        // {
-        // 	consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
-        // 		.catch(() => {});
-        // });
+        consumer.on('producerpause', () =>
+        {
+        	// consumerPeer.notify('consumerPaused', { consumerId: consumer.id })
+        	// 	.catch(() => {});
+        });
 
-        // consumer.on('producerresume', () =>
-        // {
-        // 	consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
-        // 		.catch(() => {});
-        // });
+        consumer.on('producerresume', () =>
+        {
+        	// consumerPeer.notify('consumerResumed', { consumerId: consumer.id })
+        	// 	.catch(() => {});
+        });
 
         return consumer;
 

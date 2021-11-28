@@ -152,13 +152,11 @@ function main() {
   document.getElementById("startCamera").addEventListener("click", () => {
     startCamera();
   }, false);
-
   document.getElementById("connectToPeers").addEventListener("click", () => {
     for (let id in clients) {
       connectToPeer(id);
     }
   }, false);
-
   document.getElementById("pausePeers").addEventListener("click", () => {
     for (let id in clients) {
       mediasoupPeer.pausePeer(id);

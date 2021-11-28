@@ -30,6 +30,9 @@ export class SimpleMediasoupPeer {
         console.log("Setting up new MediasoupPeer");
         this.device = null;
         this.socket = socket;
+        this.socket.on('mediasoupSignaling', (data, callback) => {
+            this.handleSocketRequest(socket.id, data, callback);
+        });
 
         this.producers = {};
         this.consumers = {};
@@ -114,6 +117,18 @@ export class SimpleMediasoupPeer {
                     opusDtx: 1
                 }
             });
+        }
+    }
+
+    async handleSocketRequest(id, request, callback) {
+        switch (request.type) {
+
+            case "produceData":
+                {
+                    console.log("produce data");
+                    break;
+                }
+
         }
     }
 

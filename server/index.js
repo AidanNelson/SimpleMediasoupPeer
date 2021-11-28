@@ -35,27 +35,20 @@ function setupSocketServer(mediasoupManager) {
         // then add to our clients object
         clients[socket.id] = {}; // store initial client state here
         
-
         socket.on('disconnect', () => {
-            mediasoupManager.removePeer(socket.id);
             delete clients[socket.id];
             io.sockets.emit('clientDisconnected', socket.id);
             console.log('client disconnected: ', socket.id);
         })
-
-        socket.on('mediasoupSignaling', (data, callback) => {
-            mediasoupManager.handleSocketRequest(socket.id, data, callback);
-        })
     });
-
 
 
 }
 
 
 function main() {
-    let mediasoupManager = new MediasoupManager();
-    setupSocketServer(mediasoupManager);
+    let mediasoupManager = new MediasoupManager(io);
+    setupSocketServer();
 }
 
 main();
