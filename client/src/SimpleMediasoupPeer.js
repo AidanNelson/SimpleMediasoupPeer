@@ -54,6 +54,10 @@ export class SimpleMediasoupPeer {
         this.initialize();
     }
 
+    onTrack(track, id, label) {
+        //
+    }
+
     async initialize() {
         console.log('initialize');
         this.setupMediasoupDevice();
@@ -64,7 +68,7 @@ export class SimpleMediasoupPeer {
     }
 
 
-    async addTrack(track, label) {
+    async addTrack(track, label, broadcast=false) {
 
         let producer;
 
@@ -82,7 +86,8 @@ export class SimpleMediasoupPeer {
                     videoGoogleStartBitrate: 1000
                 },
                 appData: {
-                    label
+                    label,
+                    broadcast
                 }
             });
         } else if (track.kind === 'audio') {
@@ -94,7 +99,8 @@ export class SimpleMediasoupPeer {
                     opusDtx: 1
                 },
                 appData: {
-                    label
+                    label,
+                    broadcast
                 }
             });
         }
@@ -126,16 +132,16 @@ export class SimpleMediasoupPeer {
 
     ensureConnectedToDesiredPeerConnections() {
         console.log('ensure connections');
-        console.log('latest available producers:',this.latestAvailableProducers);
+        console.log('latest available producers:', this.latestAvailableProducers);
         console.log('desired connections:', this.desiredPeerConnections);
         for (const peerId in this.latestAvailableProducers) {
             console.log(this.desiredPeerConnections.has(peerId))
             if (this.desiredPeerConnections.has(peerId)) {
                 for (const producerId in this.latestAvailableProducers[peerId]) {
                     const consumer = this.peers[peerId] && this.peers[peerId][producerId];
-                    console.log('existing consumer:',consumer);
+                    console.log('existing consumer:', consumer);
                     if (!consumer) {
-                        this.createConsumer(peerId, producerId);
+                        this.requestConsumer(peerId, producerId);
                     }
                 }
             }
@@ -143,26 +149,26 @@ export class SimpleMediasoupPeer {
 
     }
 
-    async createConsumer(producingPeerId, producerId) {
+    requestConsumer(producingPeerId, producerId) {
         // have we seen and added this peer already?
         if (!this.peers[producingPeerId]) {
             this.addPeer(producingPeerId);
         }
 
-        let consumerInfo = await this.socket.request('mediasoupSignaling', {
+        this.socket.emit('mediasoupSignaling', {
             'type': 'createConsumer', data: {
                 producingPeerId,
                 producerId
             }
         });
 
-        console.log("Got consumersInfo:", consumerInfo);
+    }
 
-        let tracks = [];
-
+    async createConsumer(consumerInfo) {
+        
         const {
             peerId,
-            // producerId,
+            producerId,
             id,
             kind,
             rtpParameters,
@@ -170,6 +176,12 @@ export class SimpleMediasoupPeer {
             appData,
             producerPaused
         } = consumerInfo;
+
+        // have we seen and added this peer already?
+        if (!this.peers[peerId]) {
+            this.addPeer(peerId);
+        }
+
 
 
         let consumer = this.peers[peerId][producerId];
@@ -203,6 +215,8 @@ export class SimpleMediasoupPeer {
             });
         }
 
+        this.onTrack(consumer.track, consumer.appData.peerId, consumer.appData.label);
+
     }
 
 
@@ -216,6 +230,12 @@ export class SimpleMediasoupPeer {
                     console.log('tick');
                     this.latestAvailableProducers = request.data;
                     this.ensureConnectedToDesiredPeerConnections();
+                    break;
+                }
+
+            case "createConsumer":
+                {
+                    this.createConsumer(request.data);
                     break;
                 }
 
@@ -257,12 +277,22 @@ export class SimpleMediasoupPeer {
         delete this.peers[otherPeerId];
     }
 
-    connectToPeer(id) {
-        this.desiredPeerConnections.add(id);
+    connectToPeer(peerId) {
+        this.desiredPeerConnections.add(peerId);
+
+        for (const producerId in this.latestAvailableProducers[peerId]) {
+            const existingConsumer = this.peers[peerId] && this.peers[peerId][producerId];
+            console.log('existingConsumer:', existingConsumer);
+            if (!existingConsumer) {
+                this.requestConsumer(peerId, producerId);
+            }
+        }
+
     }
 
     disconnectFromPeer(id) {
-        // close and remove all consumers
+        // TODO close and remove all consumers
+
 
         this.desiredPeerConnections.delete(id);
     }
