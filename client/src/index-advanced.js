@@ -46,7 +46,7 @@ function addPeer(id) {
 
   let peerEl = document.createElement('div');
   peerEl.id = id + "_container";
-  peerEl.style="border: 1px solid black; margin: 10px; padding: 10px;";
+  peerEl.style = "border: 1px solid black; margin: 10px; padding: 10px;";
   peerEl.innerText = "Client " + id + " - ";
 
   let connectButton = document.createElement("button");
@@ -81,73 +81,74 @@ async function startCamera() {
   }
 }
 
-function stopCamera(){
+function stopCamera() {
   console.log('closing camera');
-  if (localStream){
-    localStream.getTracks().forEach((track)=> {
+  if (localStream) {
+    localStream.getTracks().forEach((track) => {
       console.log('closing track');
       track.stop();
-       track.dispatchEvent(new Event("ended"));
+      track.dispatchEvent(new Event("ended"));
     });
     localStream = null;
   }
 }
 
 async function connectToPeer(id) {
-  let tracks = await mediasoupPeer.connectToPeer(id);
-  console.log(tracks);
+  await mediasoupPeer.connectToPeer(id);
+  // let tracks = await mediasoupPeer.connectToPeer(id);
+  // console.log(tracks);
 
-  for (const track of tracks) {
-    let el = document.getElementById(id + "_" + track.kind);
-    if (track.kind === 'video') {
-      if (el == null) {
-        console.log('Creating video element for client with ID: ' + id);
-        el = document.createElement('video');
-        el.id = id + "_" + track.kind;
-        el.autoplay = true;
-        el.muted = true;
-        // el.style = 'visibility: hidden;';
-        document.body.appendChild(el);
-        el.setAttribute('playsinline', true);
-        document.body.appendChild(el);
-      }
+  // for (const track of tracks) {
+  //   let el = document.getElementById(id + "_" + track.kind);
+  //   if (track.kind === 'video') {
+  //     if (el == null) {
+  //       console.log('Creating video element for client with ID: ' + id);
+  //       el = document.createElement('video');
+  //       el.id = id + "_" + track.kind;
+  //       el.autoplay = true;
+  //       el.muted = true;
+  //       // el.style = 'visibility: hidden;';
+  //       document.body.appendChild(el);
+  //       el.setAttribute('playsinline', true);
+  //       document.body.appendChild(el);
+  //     }
 
-      // TODO only update tracks if the track is different
-      console.log('Updating video source for client with ID: ' + id);
-      el.srcObject = null;
-      el.srcObject = new MediaStream([track]);
+  //     // TODO only update tracks if the track is different
+  //     console.log('Updating video source for client with ID: ' + id);
+  //     el.srcObject = null;
+  //     el.srcObject = new MediaStream([track]);
 
-      el.onloadedmetadata = (e) => {
-        el.play()
-          .catch((e) => {
-            console.log('Play video error: ' + e);
-          });
-      };
+  //     el.onloadedmetadata = (e) => {
+  //       el.play()
+  //         .catch((e) => {
+  //           console.log('Play video error: ' + e);
+  //         });
+  //     };
 
-    }
-    if (track.kind === "audio") {
-      if (el == null) {
-        console.log('Creating audio element for client with ID: ' + id);
-        el = document.createElement('audio');
-        el.id = id + "_" + track.kind;
-        document.body.appendChild(el);
-        el.setAttribute('playsinline', true);
-        el.setAttribute('autoplay', true);
-      }
+  //   }
+  //   if (track.kind === "audio") {
+  //     if (el == null) {
+  //       console.log('Creating audio element for client with ID: ' + id);
+  //       el = document.createElement('audio');
+  //       el.id = id + "_" + track.kind;
+  //       document.body.appendChild(el);
+  //       el.setAttribute('playsinline', true);
+  //       el.setAttribute('autoplay', true);
+  //     }
 
-      console.log('Updating <audio> source object for client with ID: ' + id);
-      el.srcObject = null;
-      el.srcObject = new MediaStream([track]);
-      el.volume = 0;
+  //     console.log('Updating <audio> source object for client with ID: ' + id);
+  //     el.srcObject = null;
+  //     el.srcObject = new MediaStream([track]);
+  //     el.volume = 0;
 
-      el.onloadedmetadata = (e) => {
-        el.play()
-          .catch((e) => {
-            console.log('Play video error: ' + e);
-          });
-      };
-    }
-  }
+  //     el.onloadedmetadata = (e) => {
+  //       el.play()
+  //         .catch((e) => {
+  //           console.log('Play video error: ' + e);
+  //         });
+  //     };
+  //   }
+  // }
 
 
 
