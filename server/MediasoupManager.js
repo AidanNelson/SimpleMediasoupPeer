@@ -520,7 +520,7 @@ class MediasoupManager {
         this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] = producer;
 
         if (appData.broadcast) {
-            this.createBroadcast(producingPeerId, producer);
+            this.createBroadcast(producingPeerId, producer.id);
 
             // store the broadcaster value somewhere
 
@@ -531,12 +531,29 @@ class MediasoupManager {
         return producer;
     }
 
-    async createBroadcast(producingPeerId, producer) {
+    async createBroadcast(producingPeerId, producerId) {
         // automatically create consumers for every other peer to consume this producer
 
-        for (const peerId in this.peers) {
-            if (peerId !== producingPeerId) {
-                const consumer = await this.createConsumer(peerId)
+        for (const consumingPeerId in this.peers) {
+            if (consumingPeerId !== producingPeerId) {
+                const consumer = await this.createConsumerForPeer(consumingPeerId, producingPeerId,producerId)
+                if (consumer) {
+                    const consumerInfo = {
+                        peerId: producingPeerId,
+                        producerId: consumer.producerId,
+                        id: consumer.id,
+                        kind: consumer.kind,
+                        rtpParameters: consumer.rtpParameters,
+                        type: consumer.type,
+                        appData: consumer.appData,
+                        producerPaused: consumer.producerPaused
+                    };
+
+                    this.peers[consumingPeerId].socket.emit('mediasoupSignaling', {
+                        type: 'createConsumer',
+                        data: consumerInfo,
+                    })
+                };
             }
         }
     }
