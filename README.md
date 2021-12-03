@@ -1,10 +1,10 @@
 # SimpleSFU (SnaFU)
 
-## Improvements:
+## To Do
 
-- [ ] - make it work with multiple routers
+- [X] - make it work with multiple routers
 - [ ] - deal with network disconnects (multiple socket connections from client when there has been a network blip?)
-
+- [ ] - if someone has previously added then paused a peer, then they remove and add a track, will the paused state be respected?
 
 
 ## API

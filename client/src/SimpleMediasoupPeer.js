@@ -68,7 +68,7 @@ export class SimpleMediasoupPeer {
   }
 
   async initialize() {
-    console.log("initialize");
+    console.log("Initializing SimpleMediasoupPeer!");
     this.setupMediasoupDevice();
     await this.connectToMediasoupRouter();
     await this.createSendTransport();
@@ -162,7 +162,7 @@ export class SimpleMediasoupPeer {
       this.addPeer(producingPeerId);
     }
 
-    this.socket.emit("mediasoupSignaling", {
+    this.socket.request("mediasoupSignaling", {
       type: "createConsumer",
       data: {
         producingPeerId,
@@ -256,27 +256,31 @@ export class SimpleMediasoupPeer {
     }
   }
 
-  async setupDataProducer() {
-    this.dataProducer = await this.sendTransport.produceData({
-      ordered: false,
-      maxRetransmits: 1,
-      label: "chat",
-      priority: "medium",
-      appData: {},
-    });
-  }
+  // async setupDataProducer() {
+  //   this.dataProducer = await this.sendTransport.produceData({
+  //     ordered: false,
+  //     maxRetransmits: 1,
+  //     label: "chat",
+  //     priority: "medium",
+  //     appData: {},
+  //   });
+  // }
 
   addPeer(otherPeerId) {
     this.peers[otherPeerId] = {};
   }
 
   async removePeer(otherPeerId) {
-    for (let label in this.peers[otherPeerId]) {
-      let c = this.peers[otherPeerId][label];
-      c.close();
+    for (let producerId in this.peers[otherPeerId]) {
+      let consumer = this.peers[otherPeerId][producerId];
+      consumer.close();
     }
     delete this.peers[otherPeerId];
   }
+
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  // public methods
 
   connectToPeer(peerId) {
     this.desiredPeerConnections.add(peerId);
@@ -293,104 +297,23 @@ export class SimpleMediasoupPeer {
 
   disconnectFromPeer(id) {
     // TODO close and remove all consumers
+    const consumers = this.peers[producingPeerId];
+    for (const producerId in consumers) {
+      const consumer = consumers[producerId];
+
+    }
 
     this.desiredPeerConnections.delete(id);
   }
 
-  // async connectToPeer(otherPeerId) {
-  //     // have we seen and added this peer already?
-  //     if (!this.peers[otherPeerId]) {
-  //         this.addPeer(otherPeerId);
-  //     }
-
-  //     let consumersInfo = await this.socket.request('mediasoupSignaling', {
-  //         'type': 'getOrCreateConsumersForPeer', data: {
-  //             otherPeerId: otherPeerId
-  //         }
-  //     });
-
-  //     console.log("Got consumersInfo:", consumersInfo);
-
-  //     let tracks = [];
-
-  //     for (let consumerInfo of consumersInfo) {
-  //         const {
-  //             peerId,
-  //             producerId,
-  //             id,
-  //             kind,
-  //             rtpParameters,
-  //             type,
-  //             appData,
-  //             producerPaused
-  //         } = consumerInfo;
-
-  //         let consumer = this.peers[peerId][producerId];
-
-  //         if (!consumer) {
-
-  //             console.log(`Creating consumer with ID ${id} for producer with ID ${producerId}`);
-
-  //             consumer = await this.recvTransport.consume(
-  //                 {
-  //                     id,
-  //                     producerId,
-  //                     kind,
-  //                     rtpParameters,
-  //                     appData: { ...appData, peerId }
-  //                 });
-
-  //             console.log("Created consumer:", consumer);
-
-  //             this.peers[peerId][producerId] = consumer;
-
-  //             consumer.on('transportclose', () => {
-  //                 delete this.peers[consumer.id];
-  //             });
-
-  //             // tell the server to start the newly created consumer
-  //             await this.socket.request('mediasoupSignaling', {
-  //                 'type': 'resumeConsumer', data: {
-  //                     producerId: consumer.producerId
-  //                 }
-  //             });
-  //         }
-
-  //         // await this.resumeConsumer(consumer);
-  //         tracks.push(consumer.track);
-  //     }
-
-  //     return tracks;
-
-  //     // this.connectToPeerConsumers(otherPeerId);
-
-  //     // // get existing consumers for this peer
-  //     // const existingConsumers = this.peers[otherPeerId];
-
-  //     // // get an updated list of available producers from this peer from the server
-  //     // const availableProducerIds = await this.socket.request('mediasoupSignaling', {
-  //     //     'type': 'getAvailableProducerIds', data: {
-  //     //         producingPeerId: otherPeerId
-  //     //     }
-  //     // });
-
-  //     // // check the list of available producers against the list of current consumers
-  //     // // create new consumers or ensure the current ones are playing accordingly
-  //     // for (const id of availableProducerIds) {
-  //     //     if (!(id in existingConsumers)) {
-  //     //         this.createAndStartConsumer();
-  //     //     } else {
-  //     //         this.resumeConsumer(existingConsumers[id].id);
-  //     //     }
-  //     // }
-
-  // }
-
   async pausePeer(producingPeerId) {
     const consumers = this.peers[producingPeerId];
 
-    for (const consumerId in consumers) {
-      const consumer = consumers[consumerId];
+    for (const producerId in consumers) {
+      const consumer = consumers[producerId];
+
+      // by default do not let us pause a broadcasts
+      if (!consumer || consumer.appData.broadcast) continue;
       if (!consumer.paused) {
         console.log("Pausing consumer!");
 
@@ -410,8 +333,10 @@ export class SimpleMediasoupPeer {
   async resumePeer(producingPeerId) {
     const consumers = this.peers[producingPeerId];
 
-    for (const consumerId in consumers) {
-      const consumer = consumers[consumerId];
+    for (const producerId in consumers) {
+      const consumer = consumers[producerId];
+
+      if (!consumer) continue;
       if (consumer.paused) {
         console.log("Resuming consumer!");
         await this.socket.request("mediasoupSignaling", {
@@ -427,36 +352,9 @@ export class SimpleMediasoupPeer {
     }
   }
 
-  async startConsumer() {
-    console.log("Start consumer");
-  }
-
-  async pauseConsumer(consumer) {
-    if (consumer) {
-      console.log(
-        "pause consumer",
-        consumer.appData.peerId,
-        consumer.appData.label
-      );
-      try {
-        await this.socket.request("pauseConsumer", { consumerId: consumer.id });
-        await consumer.pause();
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }
-
-  showStream(consumer) {
-    console.log("Creating video element for consumer");
-    const stream = new MediaStream([consumer.track]);
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    document.body.appendChild(video);
-    video.onloadedmetadata = function (e) {
-      video.play();
-    };
-  }
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  // Initial Setup
 
   setupMediasoupDevice() {
     try {

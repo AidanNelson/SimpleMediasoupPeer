@@ -69,7 +69,7 @@ async function startCamera() {
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
     let track = localStream.getVideoTracks()[0];
-    mediasoupPeer.addTrack(track, "camera", true);
+    mediasoupPeer.addTrack(track, "camera");
     // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
   } catch (err) {
     console.error(err);
