@@ -6,6 +6,11 @@
 - [ ] - deal with network disconnects (multiple socket connections from client when there has been a network blip?)
 - [ ] - if someone has previously added then paused a peer, then they remove and add a track, will the paused state be respected?
 
+Have I dealt with...?
+* socket glitches and reassigning IDs
+* transport and or producer fails
+* UnhandledPromiseRejectionWarning: TypeError: a Producer with same id "9d89745e-af87-4372-80e8-e9f6282c15ee" already exists
+* UnhandledPromiseRejectionWarning: Error: a Producer with same producerId already exists
 
 ## API
 

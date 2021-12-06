@@ -1,7 +1,6 @@
 import { io } from "socket.io-client";
 import { SimpleMediasoupPeer } from "./SimpleMediasoupPeer";
 
-
 //
 let socket;
 let clients = {};
@@ -51,7 +50,16 @@ function addPeer(id) {
     false
   );
   connectButton.innerText = "connect";
+
+  let videoEl = document.createElement("video");
+  videoEl.id = id + "_video";
+  videoEl.autoplay = true;
+  videoEl.muted = true;
+  videoEl.style = "width: 400px;";
+  videoEl.setAttribute("playsinline", true);
+
   peerEl.appendChild(connectButton);
+  peerEl.appendChild(videoEl);
 
   document.body.appendChild(peerEl);
 }
@@ -61,15 +69,29 @@ function removePeer(id) {
   delete clients[id];
 }
 
+async function startBroadcast() {
+  if (!localStream) return;
+
+  let track = localStream.getVideoTracks()[0];
+  mediasoupPeer.addTrack(track, "video-broadcast", true);
+}
+
 async function startCamera() {
   if (localStream) return;
 
   try {
-    let constraints = { audio: false, video: true };
+    let constraints = {
+      audio: false,
+      video: {
+        width: 320,
+        height: 240,
+        frameRate: { max: 10 },
+      },
+    };
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
     let track = localStream.getVideoTracks()[0];
-    mediasoupPeer.addTrack(track, "camera");
+    mediasoupPeer.addTrack(track, "video");
     // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
   } catch (err) {
     console.error(err);
@@ -142,6 +164,13 @@ function main() {
     "click",
     () => {
       startScreenshare();
+    },
+    false
+  );
+  document.getElementById("broadcast").addEventListener(
+    "click",
+    () => {
+      startBroadcast();
     },
     false
   );

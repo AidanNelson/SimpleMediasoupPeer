@@ -1,5 +1,6 @@
 const os = require("os");
 const mediasoup = require("mediasoup");
+const { AwaitQueue } = require("awaitqueue");
 require("dotenv").config({ path: process.cwd() + "/.env" });
 // const config = require("./mediasoupConfig");
 
@@ -166,6 +167,10 @@ class MediasoupManager {
 
     this.peers = {};
     this.initialize();
+
+    // we will use this queue for asynchronous tasks to avoid multiple peers
+    // requesting the same thing:
+    this.queue = new AwaitQueue();
 
     setInterval(() => {
       this.sendSyncData();
@@ -408,47 +413,64 @@ class MediasoupManager {
 
     console.log("Creating new consumer!");
 
-    // first check whether the producer or one of its pipe producers exists
-    // on the consuming peer's router:
-    let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
-    // console.log(this.peers[producingPeerId].producers);
-    let producerOrPipeProducer =
-      this.peers[producingPeerId].producers[producerId][
-        consumingPeerRouterIndex
-      ];
+    // use our queue to avoid multiple peers requesting the same pipeProducer 
+    // at the same time
+    this.queue
+      .push(async () => {
+        // first check whether the producer or one of its pipe producers exists
+        // on the consuming peer's router:
+        let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
+        // console.log(this.peers[producingPeerId].producers);
+        let producerOrPipeProducer =
+          this.peers[producingPeerId].producers[producerId][
+            consumingPeerRouterIndex
+          ];
 
-    if (!producerOrPipeProducer) {
-      // if it doesn't exist, create a new pipe producer
-      let producingRouterIndex = this.peers[producingPeerId].routerIndex;
-      console.log(
-        `Creating pipe producer from router ${producingRouterIndex} to router ${consumingPeerRouterIndex}!`
-      );
-      let { pipeProducer } = await this.routers[
-        producingRouterIndex
-      ].pipeToRouter({
-        producerId: producerId,
-        router: this.routers[consumingPeerRouterIndex],
+        console.log("Current producer: ", !!producerOrPipeProducer);
+
+        if (!producerOrPipeProducer) {
+          // if it doesn't exist, create a new pipe producer
+          let producingRouterIndex = this.peers[producingPeerId].routerIndex;
+          console.log(
+            `Creating pipe producer ID ${producerId} from router ${producingRouterIndex} to peer ${consumingPeerId} in router ${consumingPeerRouterIndex}!`
+          );
+
+          // this.peers[producingPeerId].producers[producerId][
+          //   consumingPeerRouterIndex
+          // ] = "creating";
+
+          try {
+            const { pipeProducer } = await this.routers[
+              producingRouterIndex
+            ].pipeToRouter({
+              producerId: producerId,
+              router: this.routers[consumingPeerRouterIndex],
+            });
+
+            // add the pipe producer to the producing peer's object of producers:
+            this.peers[producingPeerId].producers[producerId][
+              consumingPeerRouterIndex
+            ] = pipeProducer;
+
+            producerOrPipeProducer = pipeProducer;
+          } catch (err) {
+            console.error("Pipe To Router Error!");
+          }
+        }
+
+        let newConsumer = await this.createConsumer(
+          consumingPeerId,
+          producerOrPipeProducer
+        );
+
+        // add new consumer to the consuming peer's consumers object:
+        this.peers[consumingPeerId].consumers[producerId] = newConsumer;
+
+        return newConsumer;
+      })
+      .catch((e) => {
+        console.error(e);
       });
-
-      // add the pipe producer to the producing peer's object of producers:
-      this.peers[producingPeerId].producers[producerId][
-        consumingPeerRouterIndex
-      ] = pipeProducer;
-
-      // console.log(this.peers[producingPeerId].producers[producerId]);
-
-      producerOrPipeProducer = pipeProducer;
-    }
-
-    let newConsumer = await this.createConsumer(
-      consumingPeerId,
-      producerOrPipeProducer
-    );
-
-    // add new consumer to the consuming peer's consumers object:
-    this.peers[consumingPeerId].consumers[producerId] = newConsumer;
-
-    return newConsumer;
   }
 
   async createConsumer(consumingPeerId, producer) {
@@ -467,9 +489,9 @@ class MediasoupManager {
       console.log(err);
     }
 
-    console.log("consumer paused after creation? ", consumer.paused);
-    console.log("consumerID: ", consumer.id);
-    console.log("producerID:", consumer.producerId);
+    // console.log("consumer paused after creation? ", consumer.paused);
+    // console.log("consumerID: ", consumer.id);
+    // console.log("producerID:", consumer.producerId);
 
     this.peers[consumingPeerId].consumers[producer.id] = consumer;
 
