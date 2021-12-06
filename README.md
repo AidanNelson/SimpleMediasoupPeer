@@ -11,6 +11,15 @@ Have I dealt with...?
 * transport and or producer fails
 * UnhandledPromiseRejectionWarning: TypeError: a Producer with same id "9d89745e-af87-4372-80e8-e9f6282c15ee" already exists
 * UnhandledPromiseRejectionWarning: Error: a Producer with same producerId already exists
+* ensuring tranports have successfully connected on client side before attempting to produce
+* when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?
+* add a way to close a producer?  or somehow end track?
+* optionally add encodings for addTrack function? for screenshare quality
+* ensure load balancing across workers? 
+* ensure maximum number of workers created
+* pass in IP rather than using .env?
+* better alternative to ontrack?
+
 
 ## API
 

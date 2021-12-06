@@ -277,7 +277,7 @@ class MediasoupManager {
 
       case "createConsumer": {
         console.log("Connecting peer to other peer!");
-        let consumer = await this.createConsumerForPeer(
+        let consumer = await this.getOrCreateConsumerForPeer(
           id,
           request.data.producingPeerId,
           request.data.producerId
@@ -403,7 +403,7 @@ class MediasoupManager {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async createConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -462,6 +462,8 @@ class MediasoupManager {
           consumingPeerId,
           producerOrPipeProducer
         );
+        
+        if (!newConsumer) return null;
 
         // add new consumer to the consuming peer's consumers object:
         this.peers[consumingPeerId].consumers[producerId] = newConsumer;
@@ -478,6 +480,10 @@ class MediasoupManager {
     try {
       let transport = this.getRecvTransportForPeer(consumingPeerId);
 
+      if (!transport) {
+        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`)
+        return null;
+      }
       consumer = await transport.consume({
         producerId: producer.id,
         rtpCapabilities:
@@ -566,7 +572,7 @@ class MediasoupManager {
 
     for (const consumingPeerId in this.peers) {
       if (consumingPeerId !== producingPeerId) {
-        const consumer = await this.createConsumerForPeer(
+        const consumer = await this.getOrCreateConsumerForPeer(
           consumingPeerId,
           producingPeerId,
           producerId
