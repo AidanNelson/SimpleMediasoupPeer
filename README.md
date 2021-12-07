@@ -15,11 +15,11 @@ Have I dealt with...?
 * when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?
 * add a way to close a producer?  or somehow end track?
 * optionally add encodings for addTrack function? for screenshare quality
-* ensure load balancing across workers? 
-* ensure maximum number of workers created
 * pass in IP rather than using .env?
 * better alternative to ontrack?
 
+- [x] - ensure load balancing across workers? 
+- [x] - ensure maximum number of workers created
 
 ## API
 

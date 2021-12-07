@@ -168,6 +168,7 @@ class MediasoupManager {
     this.peers = {};
     this.initialize();
 
+    this.currentPeerRouterIndex = -1;
     // we will use this queue for asynchronous tasks to avoid multiple peers
     // requesting the same thing:
     this.queue = new AwaitQueue();
@@ -189,7 +190,7 @@ class MediasoupManager {
     this.workers = [];
     this.routers = [];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < Object.keys(os.cpus()).length; i++) {
       let { worker, router } = await this.startMediasoupWorker();
       this.workers[i] = worker;
       this.routers[i] = router;
@@ -197,9 +198,12 @@ class MediasoupManager {
   }
 
   getNewPeerRouterIndex() {
-    let index = Math.floor(Math.random() * this.routers.length);
-    console.log(`Assigning peer to router # ${index}`);
-    return index;
+    this.currentPeerRouterIndex = this.currentPeerRouterIndex + 1;
+    console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
+    return this.currentPeerRouterIndex;
+    // let index = Math.floor(Math.random() * this.routers.length);
+    // console.log(`Assigning peer to router # ${index}`);
+    // return index;
   }
 
   addPeer(socket) {
