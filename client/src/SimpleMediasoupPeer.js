@@ -79,6 +79,12 @@ export class SimpleMediasoupPeer {
   async addTrack(track, label, broadcast = false) {
     let producer;
 
+    if (this.producers[label]){
+      console.warn(`Already producing ${label}! Swapping track!`)
+      this.producers[label].replaceTrack({track});
+      return;
+    }
+
     if (track.kind === "video") {
       producer = await this.sendTransport.produce({
         track: track,
@@ -325,7 +331,7 @@ export class SimpleMediasoupPeer {
         });
         consumer.pause();
       } else {
-        console.log("Consumer already paused!");
+        // console.log("Consumer already paused!");
       }
     }
   }
@@ -347,7 +353,7 @@ export class SimpleMediasoupPeer {
         });
         consumer.resume();
       } else {
-        console.log("Consumer already playing!");
+        // console.log("Consumer already playing!");
       }
     }
   }
