@@ -1,4 +1,5 @@
 import * as mediasoupClient from "mediasoup-client";
+var log = require('debug')('SFUPeer')
 
 /*
 for broadcaster,
