@@ -35,33 +35,6 @@ function setupSocketConnection() {
 function addPeer(id) {
   console.log("Client conencted: ", id);
   clients[id] = {};
-
-  let peerEl = document.createElement("div");
-  peerEl.id = id + "_container";
-  peerEl.style = "border: 1px solid black; margin: 10px; padding: 10px;";
-  peerEl.innerText = "Client " + id + " - ";
-
-  let connectButton = document.createElement("button");
-  connectButton.addEventListener(
-    "click",
-    () => {
-      connectToPeer(id);
-    },
-    false
-  );
-  connectButton.innerText = "connect";
-
-  let videoEl = document.createElement("video");
-  videoEl.id = id + "_video";
-  videoEl.autoplay = true;
-  videoEl.muted = true;
-  videoEl.style = "width: 400px;";
-  videoEl.setAttribute("playsinline", true);
-
-  peerEl.appendChild(connectButton);
-  peerEl.appendChild(videoEl);
-
-  document.body.appendChild(peerEl);
 }
 
 function removePeer(id) {
@@ -171,6 +144,14 @@ function main() {
     "click",
     () => {
       startBroadcast();
+    },
+    false
+  );
+  document.getElementById("restartSocket").addEventListener(
+    "click",
+    () => {
+      socket.disconnect();
+      socket.connect();
     },
     false
   );

@@ -28,6 +28,12 @@ this.latestAvailableProducers = {
         producerId2: 'microphone'
     }
 }
+this.tracksToProduce = {
+  camera: {
+    track,
+    broadcast: false
+  }
+}
 TODO this should allow client to choose specific tracks
 this.desiredPeerConnections = new Set(peerId1, peerId2, peerId3);
 
@@ -55,17 +61,43 @@ export class SimpleMediasoupPeer {
       this.handleSocketMessage(data);
     });
 
+    this.socket.on("connect", async () => {
+      //
+      console.log('Connected to Socket Server with ID: ', this.socket.id);
+      await this.disconnect();
+      await this.initialize();
+    });
+
     this.producers = {};
     this.peers = {};
 
+    this.sendTransport = null;
+    this.recvTransport = null;
+
+    this.tracksToProduce = {};
+
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
-
-    this.initialize();
   }
 
   onTrack(track, id, label) {
     //
+  }
+
+  async disconnect() {
+    console.log("Clearing SimpleMediasoupPeer!");
+
+    if (this.sendTransport) { this.sendTransport.close(); }
+    if (this.recvTransport) { this.recvTransport.close(); }
+
+    this.producers = {};
+    this.peers = {};
+
+    this.sendTransport = null;
+    this.recvTransport = null;
+
+    this.latestAvailableProducers = {};
+    this.desiredPeerConnections = new Set();
   }
 
   async initialize() {
@@ -74,21 +106,37 @@ export class SimpleMediasoupPeer {
     await this.connectToMediasoupRouter();
     await this.createSendTransport();
     await this.createRecvTransport();
+
+    for (const label in this.tracksToProduce){
+      const track = this.tracksToProduce[label].track;
+      const broadcast = this.tracksToProduce[label].broadcast;
+      this.addProducer(track, label, broadcast);
+    }
     // this.setupDataProducer();
   }
 
   async addTrack(track, label, broadcast = false) {
+    this.tracksToProduce[label] = {
+      track,
+      broadcast
+    }
+    console.log(this.tracksToProduce);
+    await this.addProducer(track, label, broadcast);
+  }
+
+  async addProducer(track, label, broadcast) {
     let producer;
 
-    if (this.producers[label]){
+    if (this.producers[label]) {
       console.warn(`Already producing ${label}! Swapping track!`)
-      this.producers[label].replaceTrack({track});
+      this.producers[label].replaceTrack({ track });
       return;
     }
 
     if (track.kind === "video") {
       producer = await this.sendTransport.produce({
         track: track,
+        stopTracks: false,
         encodings: [
           // { maxBitrate: 100000 },
           // { maxBitrate: 300000 },
@@ -105,6 +153,7 @@ export class SimpleMediasoupPeer {
     } else if (track.kind === "audio") {
       producer = await this.sendTransport.produce({
         track: track,
+        stopTracks: false,
         codecOptions: {
           opusStereo: 1,
           opusDtx: 1,

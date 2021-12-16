@@ -199,8 +199,14 @@ class MediasoupManager {
 
   getNewPeerRouterIndex() {
     this.currentPeerRouterIndex = this.currentPeerRouterIndex + 1;
+
+
+    if (this.currentPeerRouterIndex >= this.routers.length){
+      this.currentPeerRouterIndex = 0;
+    }
     console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
     return this.currentPeerRouterIndex;
+
     // let index = Math.floor(Math.random() * this.routers.length);
     // console.log(`Assigning peer to router # ${index}`);
     // return index;
