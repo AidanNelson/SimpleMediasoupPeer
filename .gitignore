@@ -1,4 +1,4 @@
 node_modules/
 .parcel-cache/
 dist/
-.env
+server/.env
