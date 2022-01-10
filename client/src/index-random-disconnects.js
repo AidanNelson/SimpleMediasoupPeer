@@ -77,7 +77,7 @@ function stopCamera() {
     localStream.getTracks().forEach((track) => {
       console.log("closing track");
       track.stop();
-      track.dispatchEvent(new Event("ended"));
+      // track.dispatchEvent(new Event("ended"));
     });
     localStream = null;
   }
@@ -203,6 +203,11 @@ function main() {
           console.log("Play video error: " + e);
         });
       };
+    }
+
+    track.onended = () => {
+      console.log('track ended');
+      el.remove();
     }
   };
 }
