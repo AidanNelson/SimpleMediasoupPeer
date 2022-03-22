@@ -573,3 +573,5 @@ export class SimpleMediasoupPeer {
     console.log("Created receive transport!");
   }
 }
+
+window.SimpleMediasoupPeer = SimpleMediasoupPeer;

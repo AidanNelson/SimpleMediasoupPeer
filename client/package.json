@@ -2,15 +2,25 @@
   "name": "mediasoup-peer-client",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "source": "src/SimpleMediasoupPeer.js",
+  "default": "dist/SimpleMediasoupPeer.js",
+  "targets": {
+    "default": {}
+  },
+  "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
     "start": "parcel --no-cache src/index.html",
+    "build": "parcel build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@swc/helpers": "^0.3.3",
+    "browserlist": "^1.0.1",
+    "debug": "^4.3.3",
     "mediasoup-client": "^3.6.43",
+    "regenerator-runtime": "^0.13.9",
     "socket.io-client": "^4.3.2"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
-import { io } from "socket.io-client";
-import { SimpleMediasoupPeer } from "./SimpleMediasoupPeer";
+// import { io } from "socket.io-client";
+// import { SimpleMediasoupPeer } from "./SimpleMediasoupPeer";
 
 //
 let socket;
