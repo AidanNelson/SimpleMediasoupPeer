@@ -10,6 +10,8 @@
 </head>
 
 <body>
+    <button id="startButton">Start</button>
+    <br />
     <video id="video" autoplay playsinline muted></video>
     <audio id="audio" autoplay playsinline></audio>
     <script>
@@ -26,7 +28,7 @@
             mediasoupPeer.on('track', gotTrack);
         }
 
-        
+
         function gotTrack(track, id, label) {
             console.log(`Got track of kind ${label} from ${id}`);
             let el = document.getElementById("video");
@@ -55,7 +57,12 @@
             }
         }
 
-        main();
+        const startButton = document.getElementById('startButton');
+        startButton.addEventListener('click', () => {
+            main()
+            startButton.disabled = true;
+        }, false);
+
 
     </script>
 </body>
