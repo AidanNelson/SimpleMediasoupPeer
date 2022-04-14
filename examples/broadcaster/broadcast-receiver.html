@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"
+        integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
+        crossorigin="anonymous"></script>
+    <script src="../../client/dist/SimpleMediasoupPeer.js"></script>
+</head>
+
+<body>
+    <video id="video" autoplay playsinline muted></video>
+    <audio id="audio" autoplay playsinline></audio>
+    <script>
+        let socket;
+        let mediasoupPeer;
+
+        function main() {
+            console.log("~~~~~~~~~~~~~~~~~");
+            socket = io("localhost:5000", {
+                path: "/socket.io"
+            });
+
+            mediasoupPeer = new SimpleMediasoupPeer(socket);
+            mediasoupPeer.on('track', gotTrack);
+        }
+
+        
+        function gotTrack(track, id, label) {
+            console.log(`Got track of kind ${label} from ${id}`);
+            let el = document.getElementById("video");
+            if (track.kind === "video") {
+                console.log("Updating video source for client with ID: " + id);
+                el.srcObject = null;
+                el.srcObject = new MediaStream([track]);
+
+                el.onloadedmetadata = (e) => {
+                    el.play().catch((e) => {
+                        console.log("Play video error: " + e);
+                    });
+                };
+            }
+            if (track.kind === "audio") {
+
+                console.log("Updating <audio> source object for client with ID: " + id);
+                el.srcObject = null;
+                el.srcObject = new MediaStream([track]);
+
+                el.onloadedmetadata = (e) => {
+                    el.play().catch((e) => {
+                        console.log("Play audio error: " + e);
+                    });
+                };
+            }
+        }
+
+        main();
+
+    </script>
+</body>
+
+</html>

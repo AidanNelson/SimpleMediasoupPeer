@@ -45,6 +45,10 @@ this.desiredPeerConnections = new Set(peerId1, peerId2, peerId3);
 
 export class SimpleMediasoupPeer {
   constructor(socket) {
+
+    // https://stackoverflow.com/questions/22186467/how-to-use-javascript-eventtarget
+
+
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
@@ -80,8 +84,31 @@ export class SimpleMediasoupPeer {
     this.desiredPeerConnections = new Set();
   }
 
-  onTrack(track, id, label) {
-    //
+  // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
+  on(event, callback) {
+    if (event == 'track') {
+      console.log(`setting callback for ${event} callback`);
+
+      this.onTrackCallback = callback;
+    }
+  }
+
+  callOnTrackCallback({
+    track,
+    peerId,
+    label
+  }) {
+    if (this.onTrackCallback) {
+
+      this.onTrackCallback(
+        track,
+        peerId,
+        label
+      );
+    }
+    else {
+      console.log("no onTrack Callback Set");
+    }
   }
 
   async disconnect() {
@@ -107,7 +134,7 @@ export class SimpleMediasoupPeer {
     await this.createSendTransport();
     await this.createRecvTransport();
 
-    for (const label in this.tracksToProduce){
+    for (const label in this.tracksToProduce) {
       const track = this.tracksToProduce[label].track;
       const broadcast = this.tracksToProduce[label].broadcast;
       this.addProducer(track, label, broadcast);
@@ -245,7 +272,7 @@ export class SimpleMediasoupPeer {
     }
 
     let consumer = this.peers[peerId][producerId];
-
+   
     if (!consumer) {
       console.log(
         `Creating consumer with ID ${id} for producer with ID ${producerId}`
@@ -276,11 +303,11 @@ export class SimpleMediasoupPeer {
       });
     }
 
-    this.onTrack(
-      consumer.track,
-      consumer.appData.peerId,
-      consumer.appData.label
-    );
+    this.callOnTrackCallback({
+      track: consumer.track,
+      peerId: consumer.appData.peerId,
+      label: consumer.appData.label
+    });
   }
 
   async handleSocketMessage(request) {
