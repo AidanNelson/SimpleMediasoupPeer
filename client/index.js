@@ -1,5 +1,5 @@
 import * as mediasoupClient from "mediasoup-client";
-var log = require('debug')('SFUPeer')
+var log = require("debug")("SFUPeer");
 
 /*
 for broadcaster,
@@ -43,7 +43,7 @@ this.desiredPeerConnections = new Set(peerId1, peerId2, peerId3);
 
 */
 
-export class SimpleMediasoupPeer {
+class SimpleMediasoupPeer {
   constructor(socket) {
     console.log("Setting up new MediasoupPeer");
 
@@ -63,7 +63,7 @@ export class SimpleMediasoupPeer {
 
     this.socket.on("connect", async () => {
       //
-      console.log('Connected to Socket Server with ID: ', this.socket.id);
+      console.log("Connected to Socket Server with ID: ", this.socket.id);
       await this.disconnect();
       await this.initialize();
     });
@@ -87,8 +87,12 @@ export class SimpleMediasoupPeer {
   async disconnect() {
     console.log("Clearing SimpleMediasoupPeer!");
 
-    if (this.sendTransport) { this.sendTransport.close(); }
-    if (this.recvTransport) { this.recvTransport.close(); }
+    if (this.sendTransport) {
+      this.sendTransport.close();
+    }
+    if (this.recvTransport) {
+      this.recvTransport.close();
+    }
 
     this.producers = {};
     this.peers = {};
@@ -107,7 +111,7 @@ export class SimpleMediasoupPeer {
     await this.createSendTransport();
     await this.createRecvTransport();
 
-    for (const label in this.tracksToProduce){
+    for (const label in this.tracksToProduce) {
       const track = this.tracksToProduce[label].track;
       const broadcast = this.tracksToProduce[label].broadcast;
       this.addProducer(track, label, broadcast);
@@ -118,8 +122,8 @@ export class SimpleMediasoupPeer {
   async addTrack(track, label, broadcast = false) {
     this.tracksToProduce[label] = {
       track,
-      broadcast
-    }
+      broadcast,
+    };
     console.log(this.tracksToProduce);
     await this.addProducer(track, label, broadcast);
   }
@@ -128,7 +132,7 @@ export class SimpleMediasoupPeer {
     let producer;
 
     if (this.producers[label]) {
-      console.warn(`Already producing ${label}! Swapping track!`)
+      console.warn(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });
       return;
     }
@@ -356,7 +360,6 @@ export class SimpleMediasoupPeer {
     const consumers = this.peers[producingPeerId];
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
-
     }
 
     this.desiredPeerConnections.delete(id);
@@ -574,4 +577,4 @@ export class SimpleMediasoupPeer {
   }
 }
 
-window.SimpleMediasoupPeer = SimpleMediasoupPeer;
+module.exports = { SimpleMediasoupPeer };

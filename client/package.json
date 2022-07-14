@@ -1,15 +1,15 @@
 {
-  "name": "mediasoup-peer-client",
-  "version": "1.0.0",
+  "name": "simple-mediasoup-peer-client",
+  "version": "0.0.1",
   "description": "",
-  "source": "src/SimpleMediasoupPeer.js",
+  "source": "index.js",
   "default": "dist/SimpleMediasoupPeer.js",
+  "main": "index.js",
   "targets": {
     "default": {}
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "start": "parcel --no-cache src/index.html",
     "build": "parcel build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
