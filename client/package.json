@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "source": "index.js",
-  "default": "dist/SimpleMediasoupPeer.js",
+  "default": "dist/index.js",
   "main": "index.js",
   "targets": {
     "default": {}
