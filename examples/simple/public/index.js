@@ -1,5 +1,3 @@
-import { io } from "socket.io-client";
-import { SimpleMediasoupPeer } from "./SimpleMediasoupPeer";
 
 //
 let socket;
@@ -75,6 +73,8 @@ async function startBroadcast() {
   let track = localStream.getVideoTracks()[0];
   mediasoupPeer.addTrack(track, "video-broadcast", true);
 }
+
+
 
 async function startCamera() {
   if (localStream) return;
