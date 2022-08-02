@@ -1,14 +1,10 @@
 # Simple Mediasoup Peer
 
-This library is mean to simplify the process of building scalable real-time video and audio applications. 
+Simple Mediasoup Peer is meant to provide a simple approach to building real-time video and audio web applications for more than 10 people.  Under the hood, this library wraps the powerful, low-level [Mediasoup SFU library](https://mediasoup.org/) library with a simple API, using the [socket.io](https://socket.io/) websocket library for signaling.
 
-Under the hood, this library uses the [Mediasoup SFU library](https://mediasoup.org/) and the [socket.io](https://socket.io/) websocket library.  It requires that your application use socket.io.
+### Getting Started
 
-To use Simple Mediasoup Peer, you need to add to your client-side and server-side code.  
-
-
-### How many peers can I support?
-That depends on how they are several things: total number of connections, the server you are using, and the quality of the media stream you are sending.  
+See [the example](./examples/simple/) for guidance.
 
 
 ### Server-Side Setup
@@ -46,6 +42,10 @@ peer.resumePeer(otherPeerID);
 peer.pausePeer(otherPeerID);
 
 ```
+
+
+### How many peers can I support?
+That depends on how they are several things: total number of connections, the server you are using, and the quality of the media stream you are sending.  
 
 
 

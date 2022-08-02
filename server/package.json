@@ -3,8 +3,12 @@
   "version": "0.0.1",
   "description": "Server code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
   "contributors": [
-    "Aidan Nelson <> (https://aidanjnelson.com)",
+    "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
