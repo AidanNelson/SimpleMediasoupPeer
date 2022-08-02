@@ -4,7 +4,7 @@ const express = require('express'),
     http = require('http')
 const app = express()
 const server = http.createServer(app)
-const MediasoupManager = require("../../server/MediasoupManager");
+const MediasoupManager = require("../../server/index");
 
 let io = require('socket.io')()
 io.listen(server, {
@@ -15,9 +15,9 @@ io.listen(server, {
     },
 })
 
-// const distFolder = process.cwd() + '/client/dist'
-// console.log('Serving static files at ', distFolder)
-// app.use(express.static(process.cwd() + '/client/dist'))
+const distFolder = process.cwd() + '/public'
+console.log('Serving static files at ', distFolder)
+app.use(express.static(process.cwd() + '/public'))
 
 const port = 5000;
 server.listen(port)

@@ -1,7 +1,10 @@
 {
   "name": "simple-mediasoup-peer-client",
   "version": "0.0.1",
-  "description": "",
+  "description": "Client code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
+  "contributors": [
+    "Aidan Nelson <> (https://aidanjnelson.com)",
+  ],
   "source": "index.js",
   "default": "dist/index.js",
   "main": "index.js",

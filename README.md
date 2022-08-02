@@ -1,10 +1,10 @@
-# SimpleSFU (SnaFU)
+# Simple Mediasoup Peer
 
 This library is mean to simplify the process of building scalable real-time video and audio applications. 
 
 Under the hood, this library uses the [Mediasoup SFU library](https://mediasoup.org/) and the [socket.io](https://socket.io/) websocket library.  It requires that your application use socket.io.
 
-To use SimpleSFU, you need to add the SimpleSFU to your client-side and server-side code.  
+To use Simple Mediasoup Peer, you need to add to your client-side and server-side code.  
 
 
 ### How many peers can I support?
