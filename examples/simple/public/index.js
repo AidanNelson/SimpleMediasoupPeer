@@ -1,4 +1,3 @@
-
 //
 let socket;
 let clients = {};
@@ -7,7 +6,7 @@ let localStream;
 
 function setupSocketConnection() {
   socket = io("localhost:5000", {
-    path: "/socket.io"
+    path: "/socket.io",
   });
 
   socket.on("connect", () => {
@@ -64,6 +63,8 @@ function addPeer(id) {
 
 function removePeer(id) {
   console.log("Client disconencted:", id);
+  const peerEl = document.getElementById(id + "_container");
+  if (peerEl) peerEl.remove();
   delete clients[id];
 }
 
@@ -74,7 +75,14 @@ async function startBroadcast() {
   mediasoupPeer.addTrack(track, "video-broadcast", true);
 }
 
+async function sendCamera() {
+  if (!localStream) {
+    await startCamera();
+  }
 
+  let track = localStream.getVideoTracks()[0];
+  mediasoupPeer.addTrack(track, "video");
+}
 
 async function startCamera() {
   if (localStream) return;
@@ -89,25 +97,21 @@ async function startCamera() {
       },
     };
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-    let track = localStream.getVideoTracks()[0];
-    mediasoupPeer.addTrack(track, "video");
-    // mediasoupPeer.addTrack(stream.getAudioTracks()[0], 'microphone');
   } catch (err) {
     console.error(err);
   }
 }
 
 function stopCamera() {
-  console.log("closing camera");
-  if (localStream) {
-    localStream.getTracks().forEach((track) => {
-      console.log("closing track");
-      track.stop();
-      track.dispatchEvent(new Event("ended"));
-    });
-    localStream = null;
-  }
+  if (!localStream) return;
+  console.log("Turning off camera");
+
+  localStream.getTracks().forEach((track) => {
+    console.log("closing track");
+    track.stop();
+    // track.dispatchEvent(new Event("ended")); //hack
+  });
+  localStream = null;
 }
 
 async function connectToPeer(id) {
@@ -119,10 +123,10 @@ function main() {
   setupSocketConnection();
 
   mediasoupPeer = new SimpleMediasoupPeer(socket);
-  document.getElementById("startCamera").addEventListener(
+  document.getElementById("sendCamera").addEventListener(
     "click",
     () => {
-      startCamera();
+      sendCamera();
     },
     false
   );
@@ -276,7 +280,7 @@ async function startScreenshare() {
 
       audioEl
         .play()
-        .then(() => { })
+        .then(() => {})
         .catch((e) => {
           console.error("Play audio error: " + e);
         });
