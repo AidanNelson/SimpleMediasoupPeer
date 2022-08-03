@@ -577,4 +577,6 @@ class SimpleMediasoupPeer {
   }
 }
 
-module.exports = { SimpleMediasoupPeer };
+// module.exports = { SimpleMediasoupPeer };
+
+window.SimpleMediasoupPeer = SimpleMediasoupPeer;

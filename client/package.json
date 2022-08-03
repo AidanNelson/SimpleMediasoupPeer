@@ -10,14 +10,13 @@
     "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
   },
   "source": "index.js",
-  "default": "dist/index.js",
-  "main": "index.js",
+  "default": "dist/SimpleMediasoupPeer.js",
   "targets": {
     "default": {}
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "build": "parcel build",
+    "build": "parcel build --no-source-maps",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -31,6 +30,6 @@
     "socket.io-client": "^4.3.2"
   },
   "devDependencies": {
-    "parcel": "^2.0.0"
+    "parcel": "^2.6.2"
   }
 }
