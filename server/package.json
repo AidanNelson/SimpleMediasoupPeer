@@ -1,23 +1,22 @@
 {
-  "name": "mediasoup-peer-server",
-  "version": "1.0.0",
-  "description": "",
+  "name": "simple-mediasoup-peer-server",
+  "version": "0.0.1",
+  "description": "Server code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
+  "contributors": [
+    "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
+  },
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "awaitqueue": "^2.3.3",
-    "dotenv": "^10.0.0",
-    "express": "^4.17.1",
-    "http": "0.0.1-security",
-    "mediasoup": "^3.6.28",
-    "socket.io": "^4.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.14"
+    "mediasoup": "^3.6.28"
   }
 }

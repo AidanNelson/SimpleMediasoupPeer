@@ -1,16 +1,22 @@
 {
-  "name": "mediasoup-peer-client",
-  "version": "1.0.0",
-  "description": "",
-  "source": "src/SimpleMediasoupPeer.js",
+  "name": "simple-mediasoup-peer-client",
+  "version": "0.0.1",
+  "description": "Client code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
+  "contributors": [
+    "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
+  },
+  "source": "index.js",
   "default": "dist/SimpleMediasoupPeer.js",
   "targets": {
     "default": {}
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "start": "parcel --no-cache src/index.html",
-    "build": "parcel build",
+    "build": "parcel build --no-source-maps",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -24,6 +30,6 @@
     "socket.io-client": "^4.3.2"
   },
   "devDependencies": {
-    "parcel": "^2.0.0"
+    "parcel": "^2.6.2"
   }
 }
