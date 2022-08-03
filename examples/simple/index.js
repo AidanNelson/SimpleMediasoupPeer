@@ -1,12 +1,12 @@
-// HTTP Server setup:
-// https://stackoverflow.com/questions/27393705/how-to-resolve-a-socket-io-404-not-found-error
-const express = require('express'),
-    http = require('http')
+const express = require('express');
+const http = require('http');
+const MediasoupManager = require("simple-mediasoup-peer-server");
+const io = require('socket.io')()
+
+
 const app = express()
 const server = http.createServer(app)
-const MediasoupManager = require("../../server/index");
 
-let io = require('socket.io')()
 io.listen(server, {
     cors: {
         origin: '*',
@@ -15,6 +15,7 @@ io.listen(server, {
     },
 })
 
+// serve the client-side files
 const distFolder = process.cwd() + '/public'
 console.log('Serving static files at ', distFolder)
 app.use(express.static(process.cwd() + '/public'))
@@ -23,9 +24,10 @@ const port = 5000;
 server.listen(port)
 console.log(`Server listening on http://localhost:${port}`);
 
+// keep track of all clients here
 let clients = {};
 
-function setupSocketServer(mediasoupManager) {
+function setupSocketServer() {
     io.on('connection', (socket) => {
         console.log('User ' + socket.id + ' connected, there are ' + io.engine.clientsCount + ' clients connected')
         
@@ -41,13 +43,13 @@ function setupSocketServer(mediasoupManager) {
             console.log('client disconnected: ', socket.id);
         })
     });
-
-
 }
 
 
 function main() {
-    let mediasoupManager = new MediasoupManager(io);
+    // the mediasoup manager object will set up additional event 
+    // handlers on the socket-io object
+    new MediasoupManager(io); 
     setupSocketServer();
 }
 
