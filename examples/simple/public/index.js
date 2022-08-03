@@ -3,6 +3,7 @@ let socket;
 let clients = {};
 let mediasoupPeer;
 let localStream;
+let localScreenshareStream;
 
 function setupSocketConnection() {
   socket = io("localhost:5000", {
@@ -36,7 +37,11 @@ function addPeer(id) {
   let peerEl = document.createElement("div");
   peerEl.id = id + "_container";
   peerEl.style = "border: 1px solid black; margin: 10px; padding: 10px;";
-  peerEl.innerText = "Client " + id + " - ";
+
+  const headerEl = document.createElement("div");
+  const titleEl = document.createElement("p");
+  titleEl.innerText = "Client " + id + " - ";
+  headerEl.appendChild(titleEl);
 
   let connectButton = document.createElement("button");
   connectButton.addEventListener(
@@ -47,16 +52,17 @@ function addPeer(id) {
     false
   );
   connectButton.innerText = "connect";
+  headerEl.appendChild(connectButton);
 
-  let videoEl = document.createElement("video");
-  videoEl.id = id + "_video";
-  videoEl.autoplay = true;
-  videoEl.muted = true;
-  videoEl.style = "width: 400px;";
-  videoEl.setAttribute("playsinline", true);
+  // let videoEl = document.createElement("video");
+  // videoEl.id = id + "_video";
+  // videoEl.autoplay = true;
+  // videoEl.muted = true;
+  // videoEl.style = "max-width: 300px;";
+  // videoEl.setAttribute("playsinline", true);
 
-  peerEl.appendChild(connectButton);
-  peerEl.appendChild(videoEl);
+  peerEl.appendChild(headerEl);
+  // peerEl.appendChild(videoEl);
 
   document.body.appendChild(peerEl);
 }
@@ -97,6 +103,18 @@ async function startCamera() {
       },
     };
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // add to local stream container to make for easier debugging:
+    const el = document.createElement("video");
+    el.id = "localVideo";
+    el.autoplay = true;
+    el.muted = true;
+    el.style = "max-width: 200px;";
+    el.setAttribute("playsinline", true);
+    el.srcObject = localStream;
+
+    let container = document.getElementById("localStreamsContainer");
+    container.appendChild(el);
   } catch (err) {
     console.error(err);
   }
@@ -179,8 +197,11 @@ function main() {
     false
   );
 
+  // create an on-track listener
   mediasoupPeer.onTrack = (track, id, label) => {
-    console.log(`Got track of kind ${label} from ${id}`);
+    console.log(
+      `Got track with label ${label} from ${id}.   Kind: ${track.kind}`
+    );
     let el = document.getElementById(id + "_" + label);
     if (track.kind === "video") {
       if (el == null) {
@@ -189,10 +210,10 @@ function main() {
         el.id = id + "_" + label;
         el.autoplay = true;
         el.muted = true;
-        // el.style = 'visibility: hidden;';
-        document.body.appendChild(el);
+        el.style = "max-width: 200px;";
+        let container = document.getElementById(id + "_container");
+        container.appendChild(el);
         el.setAttribute("playsinline", true);
-        document.body.appendChild(el);
       }
 
       // TODO only update tracks if the track is different
@@ -211,7 +232,8 @@ function main() {
         console.log("Creating audio element for client with ID: " + id);
         el = document.createElement("audio");
         el.id = id + "_" + label;
-        document.body.appendChild(el);
+        let container = document.getElementById(id + "_container");
+        container.appendChild(el);
         el.setAttribute("playsinline", true);
         el.setAttribute("autoplay", true);
       }
@@ -219,11 +241,11 @@ function main() {
       console.log("Updating <audio> source object for client with ID: " + id);
       el.srcObject = null;
       el.srcObject = new MediaStream([track]);
-      el.volume = 0;
+      el.volume = 0; // avoid feedback during local development
 
       el.onloadedmetadata = (e) => {
         el.play().catch((e) => {
-          console.log("Play video error: " + e);
+          console.log("Play audio error: " + e);
         });
       };
     }
@@ -235,59 +257,42 @@ main();
 async function startScreenshare() {
   console.log("Sharing screen!");
 
+  if (!localScreenshareStream) {
+    await getLocalScreenShareMedia();
+  }
+
+  const videoTrack = localScreenshareStream.getVideoTracks()[0];
+  const audioTrack = localScreenshareStream.getAudioTracks()[0];
+
+  if (videoTrack) {
+    mediasoupPeer.addTrack(videoTrack, "screenshare-video");
+  }
+
+  if (audioTrack) {
+    mediasoupPeer.addTrack(audioTrack, "screenshare-audio");
+  }
+}
+
+async function getLocalScreenShareMedia() {
   try {
     // get a screen share track
-    const localScreen = await navigator.mediaDevices.getDisplayMedia({
+    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia({
       video: true,
-      audio: {
-        autoGainControl: false, // seems to make it mono if true
-        echoCancellation: false,
-        noiseSupression: false,
-      },
+      audio: false,
     });
 
-    const videoTrack = localScreen.getVideoTracks()[0];
-    const audioTrack = localScreen.getAudioTracks()[0];
+    // add to local stream container to make for easier debugging:
+    const el = document.createElement("video");
+    el.id = "localScreenshare";
+    el.autoplay = true;
+    el.muted = true;
+    el.style = "max-width: 200px;";
+    el.setAttribute("playsinline", true);
+    el.srcObject = localScreenshareStream;
 
-    if (videoTrack) {
-      let videoEl = document.getElementById("local_screen-video");
-      if (!videoEl) {
-        videoEl = document.createElement("video");
-        videoEl.setAttribute("id", "local_screen-video");
-        videoEl.setAttribute("muted", true);
-        videoEl.setAttribute("autoplay", true);
-        document.body.appendChild(videoEl);
-      }
-
-      const videoStream = new MediaStream([videoTrack]);
-      videoEl.srcObject = videoStream;
-
-      mediasoupPeer.addTrack(videoTrack, "screen-video", true);
-    }
-
-    if (audioTrack) {
-      let audioEl = document.getElementById("local_screen-audio");
-      if (audioEl == null) {
-        audioEl = document.createElement("audio");
-        audioEl.setAttribute("id", "local_screen-audio");
-        audioEl.setAttribute("playsinline", true);
-        audioEl.setAttribute("autoplay", true);
-        document.body.appendChild(audioEl);
-      }
-
-      let audioStream = new MediaStream([audioTrack]);
-      audioEl.srcObject = audioStream;
-
-      audioEl
-        .play()
-        .then(() => {})
-        .catch((e) => {
-          console.error("Play audio error: " + e);
-        });
-
-      mediasoupPeer.addTrack(audioTrack, "screen-audio", true);
-    }
-  } catch (e) {
-    console.error(e);
+    let container = document.getElementById("localStreamsContainer");
+    container.appendChild(el);
+  } catch (err) {
+    console.error("GetDisplayMedia Error: ", err);
   }
 }
