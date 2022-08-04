@@ -1,6 +1,6 @@
 const express = require('express');
 const http = require('http');
-const MediasoupManager = require("simple-mediasoup-peer-server");
+const SimpleMediasoupPeerServer = require("simple-mediasoup-peer-server");
 const io = require('socket.io')()
 
 
@@ -49,7 +49,7 @@ function setupSocketServer() {
 function main() {
     // the mediasoup manager object will set up additional event 
     // handlers on the socket-io object
-    new MediasoupManager(io); 
+    new SimpleMediasoupPeerServer(io); 
     setupSocketServer();
 }
 
