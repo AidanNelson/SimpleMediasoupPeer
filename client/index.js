@@ -1,5 +1,5 @@
 import * as mediasoupClient from "mediasoup-client";
-var log = require("debug")("SFUPeer");
+var log = require('debug')('SFUPeer')
 
 /*
 for broadcaster,
@@ -43,8 +43,12 @@ this.desiredPeerConnections = new Set(peerId1, peerId2, peerId3);
 
 */
 
-class SimpleMediasoupPeer {
+export class SimpleMediasoupPeer {
   constructor(socket) {
+
+    // https://stackoverflow.com/questions/22186467/how-to-use-javascript-eventtarget
+
+
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
@@ -63,7 +67,7 @@ class SimpleMediasoupPeer {
 
     this.socket.on("connect", async () => {
       //
-      console.log("Connected to Socket Server with ID: ", this.socket.id);
+      console.log('Connected to Socket Server with ID: ', this.socket.id);
       await this.disconnect();
       await this.initialize();
     });
@@ -80,19 +84,38 @@ class SimpleMediasoupPeer {
     this.desiredPeerConnections = new Set();
   }
 
-  onTrack(track, id, label) {
-    //
+  // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
+  on(event, callback) {
+    if (event == 'track') {
+      console.log(`setting callback for ${event} callback`);
+
+      this.onTrackCallback = callback;
+    }
+  }
+
+  callOnTrackCallback({
+    track,
+    peerId,
+    label
+  }) {
+    if (this.onTrackCallback) {
+
+      this.onTrackCallback(
+        track,
+        peerId,
+        label
+      );
+    }
+    else {
+      console.log("no onTrack Callback Set");
+    }
   }
 
   async disconnect() {
     console.log("Clearing SimpleMediasoupPeer!");
 
-    if (this.sendTransport) {
-      this.sendTransport.close();
-    }
-    if (this.recvTransport) {
-      this.recvTransport.close();
-    }
+    if (this.sendTransport) { this.sendTransport.close(); }
+    if (this.recvTransport) { this.recvTransport.close(); }
 
     this.producers = {};
     this.peers = {};
@@ -114,38 +137,46 @@ class SimpleMediasoupPeer {
     for (const label in this.tracksToProduce) {
       const track = this.tracksToProduce[label].track;
       const broadcast = this.tracksToProduce[label].broadcast;
-      this.addProducer(track, label, broadcast);
+      const customEncodings = this.tracksToProduce[label].customEncodings;
+      this.addProducer(track, label, broadcast, customEncodings);
     }
     // this.setupDataProducer();
   }
 
-  async addTrack(track, label, broadcast = false) {
+  async addTrack(track, label, broadcast = false, customEncodings = false) {
     this.tracksToProduce[label] = {
       track,
       broadcast,
-    };
+      customEncodings
+    }
     console.log(this.tracksToProduce);
-    await this.addProducer(track, label, broadcast);
+    await this.addProducer(track, label, broadcast, customEncodings);
   }
 
-  async addProducer(track, label, broadcast) {
+  async addProducer(track, label, broadcast, customEncodings) {
     let producer;
 
     if (this.producers[label]) {
-      console.warn(`Already producing ${label}! Swapping track!`);
+      console.warn(`Already producing ${label}! Swapping track!`)
       this.producers[label].replaceTrack({ track });
       return;
     }
 
     if (track.kind === "video") {
+      let encodings = [
+        { maxBitrate: 500000 } // 0.5Mbps
+      ];
+  
+      if (customEncodings){
+        encodings = customEncodings;
+        console.log('Using custom encodings:',encodings);
+
+      }
+
       producer = await this.sendTransport.produce({
         track: track,
         stopTracks: false,
-        encodings: [
-          // { maxBitrate: 100000 },
-          // { maxBitrate: 300000 },
-          { maxBitrate: 900000 },
-        ],
+        encodings,
         codecOptions: {
           videoGoogleStartBitrate: 1000,
         },
@@ -155,13 +186,18 @@ class SimpleMediasoupPeer {
         },
       });
     } else if (track.kind === "audio") {
+      let encodings = [
+        { maxBitrate: 64000 } // 64 kbps
+      ];
+  
+      if (customEncodings){
+        encodings = customEncodings;
+      }   
+
       producer = await this.sendTransport.produce({
         track: track,
         stopTracks: false,
-        codecOptions: {
-          opusStereo: 1,
-          opusDtx: 1,
-        },
+        encodings,
         appData: {
           label,
           broadcast,
@@ -249,7 +285,7 @@ class SimpleMediasoupPeer {
     }
 
     let consumer = this.peers[peerId][producerId];
-
+   
     if (!consumer) {
       console.log(
         `Creating consumer with ID ${id} for producer with ID ${producerId}`
@@ -280,11 +316,11 @@ class SimpleMediasoupPeer {
       });
     }
 
-    this.onTrack(
-      consumer.track,
-      consumer.appData.peerId,
-      consumer.appData.label
-    );
+    this.callOnTrackCallback({
+      track: consumer.track,
+      peerId: consumer.appData.peerId,
+      label: consumer.appData.label
+    });
   }
 
   async handleSocketMessage(request) {
@@ -360,6 +396,7 @@ class SimpleMediasoupPeer {
     const consumers = this.peers[producingPeerId];
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
+
     }
 
     this.desiredPeerConnections.delete(id);
@@ -576,7 +613,5 @@ class SimpleMediasoupPeer {
     console.log("Created receive transport!");
   }
 }
-
-// module.exports = { SimpleMediasoupPeer };
 
 window.SimpleMediasoupPeer = SimpleMediasoupPeer;
