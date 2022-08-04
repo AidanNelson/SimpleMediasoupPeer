@@ -290,6 +290,14 @@ function main() {
     },
     false
   );
+  document.getElementById("restartSocket").addEventListener(
+    "click",
+    () => {
+      socket.disconnect();
+      socket.connect();
+    },
+    false
+  );
 
   // create an on-track listener
   mediasoupPeer.onTrack = (track, id, label) => {

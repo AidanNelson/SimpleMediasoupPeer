@@ -1,5 +1,4 @@
 import * as mediasoupClient from "mediasoup-client";
-var log = require('debug')('SFUPeer')
 
 /*
 for broadcaster,
@@ -111,6 +110,7 @@ export class SimpleMediasoupPeer {
     }
   }
 
+
   async disconnect() {
     console.log("Clearing SimpleMediasoupPeer!");
 
@@ -127,6 +127,7 @@ export class SimpleMediasoupPeer {
     this.desiredPeerConnections = new Set();
   }
 
+
   async initialize() {
     console.log("Initializing SimpleMediasoupPeer!");
     this.setupMediasoupDevice();
@@ -140,7 +141,6 @@ export class SimpleMediasoupPeer {
       const customEncodings = this.tracksToProduce[label].customEncodings;
       this.addProducer(track, label, broadcast, customEncodings);
     }
-    // this.setupDataProducer();
   }
 
   async addTrack(track, label, broadcast = false, customEncodings = false) {
@@ -352,16 +352,6 @@ export class SimpleMediasoupPeer {
     }
   }
 
-  // async setupDataProducer() {
-  //   this.dataProducer = await this.sendTransport.produceData({
-  //     ordered: false,
-  //     maxRetransmits: 1,
-  //     label: "chat",
-  //     priority: "medium",
-  //     appData: {},
-  //   });
-  // }
-
   addPeer(otherPeerId) {
     this.peers[otherPeerId] = {};
   }
@@ -420,8 +410,6 @@ export class SimpleMediasoupPeer {
           },
         });
         consumer.pause();
-      } else {
-        // console.log("Consumer already paused!");
       }
     }
   }
@@ -442,8 +430,6 @@ export class SimpleMediasoupPeer {
           },
         });
         consumer.resume();
-      } else {
-        // console.log("Consumer already playing!");
       }
     }
   }
