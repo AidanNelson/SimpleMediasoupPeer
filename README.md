@@ -92,4 +92,4 @@ That depends on how they are several things: total number of connections, the se
 
 ## Examples
 - [X] - simple example
-- [ ] - broadcast example
+- [X] - broadcast example
