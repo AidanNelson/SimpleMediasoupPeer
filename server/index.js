@@ -178,7 +178,7 @@ class SimpleMediasoupPeerServer {
 
     setInterval(() => {
       this.sendSyncData();
-    }, 5000);
+    }, 2500);
   }
 
   sendSyncData() {
