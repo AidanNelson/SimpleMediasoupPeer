@@ -12,8 +12,7 @@ function init() {
   socket = io();
 
   mediasoupPeer = new SimpleMediasoupPeer(socket);
-  // mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.onTrack = gotTrack;
+  mediasoupPeer.on("track", gotTrack);
 }
 
 //*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//

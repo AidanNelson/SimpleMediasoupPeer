@@ -78,7 +78,32 @@ function addPeerElements(id) {
     false
   );
   connectButton.innerText = "connect";
+
   headerEl.appendChild(connectButton);
+
+  let pauseButton = document.createElement("button");
+  pauseButton.addEventListener(
+    "click",
+    () => {
+      mediasoupPeer.pausePeer(id);
+    },
+    false
+  );
+  pauseButton.innerText = "pause";
+
+  headerEl.appendChild(pauseButton);
+
+  let resumeButton = document.createElement("button");
+  resumeButton.addEventListener(
+    "click",
+    () => {
+      mediasoupPeer.resumePeer(id);
+    },
+    false
+  );
+  resumeButton.innerText = "resume";
+
+  headerEl.appendChild(resumeButton);
 
   peerEl.appendChild(headerEl);
   document.body.appendChild(peerEl);
@@ -230,6 +255,11 @@ function createHTMLElementsFromTrack(track, id, label) {
   }
 }
 
+function gotTrack(track, id, label) {
+  console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
+  createHTMLElementsFromTrack(track, id, label);
+};
+
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
   setupSocketConnection();
@@ -300,10 +330,7 @@ function main() {
   );
 
   // create an on-track listener
-  mediasoupPeer.onTrack = (track, id, label) => {
-    console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
-    createHTMLElementsFromTrack(track, id, label);
-  };
+  mediasoupPeer.on("track", gotTrack);
 }
 
 main();
