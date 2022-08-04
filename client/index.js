@@ -1,53 +1,7 @@
 import * as mediasoupClient from "mediasoup-client";
 
-/*
-for broadcaster,
-will need to be able to set a peer as a sender or receiver
-will need bidirectional data channels
-
-other idea:
-re-broadcaster - idea of managing a video switch on client or server side
-
-add to github and share with shawn
-
-this.producers = {
-    camera: producerObj,
-    microphone: producerObj,
-    screenshare: producerObj
-}
-this.peers = {
-    peerId1: {
-        producerId1: consumerObj,
-        producerId2: consumerObj
-    }
-}
-this.latestAvailableProducers = {
-    peerId1: {
-        producerId1: 'camera',
-        producerId2: 'microphone'
-    }
-}
-this.tracksToProduce = {
-  camera: {
-    track,
-    broadcast: false
-  }
-}
-TODO this should allow client to choose specific tracks
-this.desiredPeerConnections = new Set(peerId1, peerId2, peerId3);
-
-}
-
-
-
-*/
-
 export class SimpleMediasoupPeer {
   constructor(socket) {
-
-    // https://stackoverflow.com/questions/22186467/how-to-use-javascript-eventtarget
-
-
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
@@ -65,7 +19,6 @@ export class SimpleMediasoupPeer {
     });
 
     this.socket.on("connect", async () => {
-      //
       console.log('Connected to Socket Server with ID: ', this.socket.id);
       await this.disconnect();
       await this.initialize();
@@ -87,7 +40,6 @@ export class SimpleMediasoupPeer {
   on(event, callback) {
     if (event == 'track') {
       console.log(`setting callback for ${event} callback`);
-
       this.onTrackCallback = callback;
     }
   }
@@ -381,24 +333,13 @@ export class SimpleMediasoupPeer {
     }
   }
 
-  disconnectFromPeer(id) {
-    // TODO close and remove all consumers
-    const consumers = this.peers[producingPeerId];
-    for (const producerId in consumers) {
-      const consumer = consumers[producerId];
-
-    }
-
-    this.desiredPeerConnections.delete(id);
-  }
-
   async pausePeer(producingPeerId) {
     const consumers = this.peers[producingPeerId];
 
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
 
-      // by default do not let us pause a broadcasts
+      // by default do not let us pause a broadcast
       if (!consumer || consumer.appData.broadcast) continue;
       if (!consumer.paused) {
         console.log("Pausing consumer!");
