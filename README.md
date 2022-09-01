@@ -64,6 +64,7 @@ That depends on how they are several things: total number of connections, the se
 - [ ] - Add method to disconnect from peer and cleanup any consumers
 - [ ] - Support data producer / consumer
 - [ ] - Support multiple rooms?
+- [ ] - Add cleanup method for tracks after broadcaster disconnects.
 
 
 ### Bugs and Testing
