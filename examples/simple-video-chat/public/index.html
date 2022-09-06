@@ -21,22 +21,18 @@
     </style>
   </head>
   <body>
-    <button id="sendCamera">Send Camera</button>
-    <button id="stopCamera">Stop Camera</button>
-    <button id="broadcast">Broadcast Camera</button>
-
-    <button id="connectToPeers">Connect To All Peers</button>
-    <button id="pausePeers">Pause All Peers</button>
-    <button id="resumePeers">Resume All Peers</button>
-    <button id="screenshare">Share Screen</button>
-    <button id="restartSocket">Restart Socket</button>
 
     <div id="peerContainer">
       <div
         style="border: 1px solid black; margin: 10px; padding: 10px"
         id="local_container"
       >
-        <p>Local Streams:</p>
+      <video id="local_video"></video>
+      <video id="local_screen-video"></video>
+        <p>My local feed</p>
+        <button id="sendCamera">start camera</button>
+        <button id="stopCamera">stop camera</button>  
+        <button id="screenshare">share screen</button>
       </div>
     </div>
     <script src="index.js" type="module"></script>

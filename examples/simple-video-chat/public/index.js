@@ -64,6 +64,27 @@ function addPeerElements(id) {
   peerEl.id = id + "_container";
   peerEl.style = "border: 1px solid black; margin: 10px; padding: 10px;";
 
+  let videoEl = document.createElement("video");
+  videoEl.id = id + "_video";
+  videoEl.setAttribute("autoplay", true);
+  videoEl.setAttribute("muted", true);
+  videoEl.setAttribute("playsinline", true);
+  peerEl.appendChild(videoEl);
+
+  videoEl = document.createElement("video");
+  videoEl.id = id + "_screen-video";
+  videoEl.setAttribute("autoplay", true);
+  videoEl.setAttribute("muted", true);
+  videoEl.setAttribute("playsinline", true);
+  peerEl.appendChild(videoEl);
+
+
+  let audioEl = document.createElement("audio");
+  audioEl.id = id + "_audio";
+  audioEl.setAttribute("playsinline", true);
+  audioEl.setAttribute("autoplay", true);
+  peerEl.appendChild(audioEl);
+
   const headerEl = document.createElement("div");
   const titleEl = document.createElement("p");
   titleEl.innerText = "Client " + id + " - ";
@@ -106,25 +127,25 @@ function addPeerElements(id) {
   headerEl.appendChild(resumeButton);
 
   peerEl.appendChild(headerEl);
-  document.getElementById('peerContainer').appendChild(peerEl);
+  document.getElementById("peerContainer").appendChild(peerEl);
 }
 
-async function startBroadcast() {
-  if (!localStream) {
-    await startCamera();
-  }
+// async function startBroadcast() {
+//   if (!localStream) {
+//     await startCamera();
+//   }
 
-  const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
+//   const videoTrack = localStream.getVideoTracks()[0];
+//   const audioTrack = localStream.getAudioTracks()[0];
 
-  if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "video-broadcast", true);
-  }
+//   if (videoTrack) {
+//     mediasoupPeer.addTrack(videoTrack, "video-broadcast", true);
+//   }
 
-  if (audioTrack) {
-    mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true);
-  }
-}
+//   if (audioTrack) {
+//     mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true);
+//   }
+// }
 
 async function sendCamera() {
   if (!localStream) {
@@ -147,11 +168,13 @@ async function startCamera() {
   if (localStream) return;
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia(userMediaConstraints);
+    localStream = await navigator.mediaDevices.getUserMedia(
+      userMediaConstraints
+    );
 
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
-      createHTMLElementsFromTrack(videoTrack, "local", "video");
+      updateHTMLElementsFromTrack(videoTrack, "local", "video");
     }
   } catch (err) {
     console.error(err);
@@ -181,46 +204,31 @@ async function startScreenshare() {
   }
 
   const videoTrack = localScreenshareStream.getVideoTracks()[0];
-  const audioTrack = localScreenshareStream.getAudioTracks()[0];
 
   if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "screenshare-video");
-  }
-
-  if (audioTrack) {
-    mediasoupPeer.addTrack(audioTrack, "screenshare-audio");
+    mediasoupPeer.addTrack(videoTrack, "screen-video");
   }
 }
 
 async function getLocalScreenShareMedia() {
   try {
     // get a screen share track
-    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(screenMediaConstraints);
+    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(
+      screenMediaConstraints
+    );
 
     const videoTrack = localScreenshareStream.getVideoTracks()[0];
     if (videoTrack) {
-      createHTMLElementsFromTrack(videoTrack, "local", "screen-video");
+      updateHTMLElementsFromTrack(videoTrack, "local", "screen-video");
     }
   } catch (err) {
     console.error("GetDisplayMedia Error: ", err);
   }
 }
 
-function createHTMLElementsFromTrack(track, id, label) {
+function updateHTMLElementsFromTrack(track, id, label) {
   let el = document.getElementById(id + "_" + label);
   if (track.kind === "video") {
-    if (el == null) {
-      console.log("Creating video element for client with ID: " + id);
-      el = document.createElement("video");
-      el.id = id + "_" + label;
-      el.autoplay = true;
-      el.muted = true;
-      let container = document.getElementById(id + "_container");
-      container.appendChild(el);
-      el.setAttribute("playsinline", true);
-    }
-
-    // TODO only update tracks if the track is different
     console.log("Updating video source for client with ID: " + id);
     el.srcObject = null;
     el.srcObject = new MediaStream([track]);
@@ -232,16 +240,6 @@ function createHTMLElementsFromTrack(track, id, label) {
     };
   }
   if (track.kind === "audio") {
-    if (el == null) {
-      console.log("Creating audio element for client with ID: " + id);
-      el = document.createElement("audio");
-      el.id = id + "_" + label;
-      let container = document.getElementById(id + "_container");
-      container.appendChild(el);
-      el.setAttribute("playsinline", true);
-      el.setAttribute("autoplay", true);
-    }
-
     console.log("Updating <audio> source object for client with ID: " + id);
     el.srcObject = null;
     el.srcObject = new MediaStream([track]);
@@ -256,9 +254,11 @@ function createHTMLElementsFromTrack(track, id, label) {
 }
 
 function gotTrack(track, id, label) {
-  console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
-  createHTMLElementsFromTrack(track, id, label);
-};
+  console.log(
+    `Got track with label ${label} from ${id}.   Kind: ${track.kind}`
+  );
+  updateHTMLElementsFromTrack(track, id, label);
+}
 
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
@@ -279,52 +279,11 @@ function main() {
     },
     false
   );
-  document.getElementById("connectToPeers").addEventListener(
-    "click",
-    () => {
-      for (let id in clients) {
-        connectToPeer(id);
-      }
-    },
-    false
-  );
-  document.getElementById("pausePeers").addEventListener(
-    "click",
-    () => {
-      for (let id in clients) {
-        mediasoupPeer.pausePeer(id);
-      }
-    },
-    false
-  );
-  document.getElementById("resumePeers").addEventListener(
-    "click",
-    () => {
-      for (let id in clients) {
-        mediasoupPeer.resumePeer(id);
-      }
-    },
-    false
-  );
+ 
   document.getElementById("screenshare").addEventListener(
     "click",
     () => {
       startScreenshare();
-    },
-    false
-  );
-  document.getElementById("broadcast").addEventListener(
-    "click",
-    () => {
-      startBroadcast();
-    },
-    false
-  );
-  document.getElementById("restartSocket").addEventListener(
-    "click",
-    () => {
-      socket.disconnect();
-      socket.connect();
     },
     false
   );
