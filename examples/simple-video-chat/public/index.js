@@ -106,7 +106,7 @@ function addPeerElements(id) {
   headerEl.appendChild(resumeButton);
 
   peerEl.appendChild(headerEl);
-  document.body.appendChild(peerEl);
+  document.getElementById('peerContainer').appendChild(peerEl);
 }
 
 async function startBroadcast() {
