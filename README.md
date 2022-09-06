@@ -4,7 +4,7 @@ Simple Mediasoup Peer is meant to provide a simple approach to building real-tim
 
 ### Getting Started
 
-See [the example](./examples/simple/) for guidance.
+See [the example](./examples/simple-video-chat) for guidance.
 
 
 ### Server-Side Setup
