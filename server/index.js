@@ -517,7 +517,7 @@ class SimpleMediasoupPeerServer {
     // Set Consumer events.
     consumer.on("transportclose", () => {
       // Remove from its map.
-      this.peers[consumingPeerId].consumers.delete(producer.id);
+      delete this.peers[consumingPeerId].consumers[producer.id];
     });
 
     consumer.on("producerclose", () => {

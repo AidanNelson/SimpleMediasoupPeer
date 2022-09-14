@@ -6,7 +6,6 @@ const http = require('http');
 process.env.DEBUG = "mediasoup:WARN:* mediasoup:ERROR:*" // show only mediasoup warnings & errors
 
 const SimpleMediasoupPeerServer = require("simple-mediasoup-peer-server");
-
 const io = require('socket.io')()
 
 
