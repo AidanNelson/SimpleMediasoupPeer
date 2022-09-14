@@ -85,6 +85,7 @@ That depends on how they are several things: total number of connections, the se
 - [ ] - Add method to disconnect from peer and cleanup any consumers
 - [ ] - Support data producer / consumer
 - [ ] - Support multiple rooms?
+- [ ] - Add cleanup method for tracks after broadcaster disconnects.
 
 ### Bugs and Testing
 
@@ -110,6 +111,6 @@ That depends on how they are several things: total number of connections, the se
 - [x] - when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
 
 ## Examples
-
 - [x] - simple example
 - [x] - broadcast example
+
