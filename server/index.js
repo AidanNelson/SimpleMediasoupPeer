@@ -93,7 +93,7 @@ class SimpleMediasoupPeerServer {
 
     setInterval(() => {
       this.sendSyncDataToAllRooms();
-    }, 1000);
+    }, 5000);
   }
 
   sendSyncDataToAllRooms() {
@@ -364,6 +364,23 @@ class SimpleMediasoupPeerServer {
           break;
         }
         await consumer.resume();
+        callback();
+
+        break;
+      }
+
+      case "closeConsumer": {
+        console.log("Closing consumer!");
+
+        const consumer = this.getConsumer(id, request.data.producerId);
+
+        if (!consumer) {
+          console.warn("No consumer found!");
+          break;
+        }
+        await consumer.close();
+        delete this.peers[id].consumers[request.data.producerId];
+
         callback();
 
         break;

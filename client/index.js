@@ -425,7 +425,6 @@ export class SimpleMediasoupPeer {
   async handleSocketMessage(request) {
     switch (request.type) {
       case "availableProducers": {
-        console.log("tick");
         this.updatePeersFromSyncData(request.data);
         break;
       }
@@ -463,6 +462,7 @@ export class SimpleMediasoupPeer {
   // public methods
 
   connectToPeer(peerId) {
+    console.log("Attempting to connect to peer", peerId);
     this.desiredPeerConnections.add(peerId);
 
     for (const producerId in this.latestAvailableProducers[peerId]) {
@@ -475,11 +475,21 @@ export class SimpleMediasoupPeer {
     }
   }
 
+  /*
+  This function closes all connections to a given peer
+  */
   disconnectFromPeer(otherPeerId) {
     this.callOnDisconnectCallback(otherPeerId);
     for (let producerId in this.consumers[otherPeerId]) {
       const consumer = this.consumers[otherPeerId][producerId];
       consumer.close();
+      this.socket.request("mediasoupSignaling", {
+        type: "closeConsumer",
+        data: {
+          producerId: consumer.producerId,
+        },
+      });
+      console.log(consumer);
     }
     delete this.consumers[otherPeerId];
     this.desiredPeerConnections.delete(otherPeerId);
