@@ -1,4 +1,4 @@
-let socket;
+// let socket;
 let clients = {};
 let mediasoupPeer;
 let localStream;
@@ -20,30 +20,29 @@ let screenMediaConstraints = {
   audio: false,
 };
 
-function setupSocketConnection() {
-  socket = io("localhost:5000", {
-    path: "/socket.io",
-  });
+// function setupSocketConnection() {
+  // socket = io("localhost:3000");
+  // socket = io();
 
-  socket.on("connect", () => {
-    console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
-  });
+  // socket.on("connect", () => {
+  //   console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
+  // });
 
-  socket.on("clients", (ids) => {
-    console.log("Got initial clients!");
-    for (let i = 0; i < ids.length; i++) {
-      addPeer(ids[i]);
-    }
-  });
+  // socket.on("clients", (ids) => {
+  //   console.log("Got initial clients!");
+  //   for (let i = 0; i < ids.length; i++) {
+  //     addPeer(ids[i]);
+  //   }
+  // });
 
-  socket.on("clientConnected", (id) => {
-    addPeer(id);
-  });
+  // socket.on("clientConnected", (id) => {
+  //   addPeer(id);
+  // });
 
-  socket.on("clientDisconnected", (id) => {
-    removePeer(id);
-  });
-}
+  // socket.on("clientDisconnected", (id) => {
+  //   removePeer(id);
+  // });
+// }
 
 function addPeer(id) {
   console.log("Client conencted: ", id);
@@ -262,9 +261,9 @@ function gotTrack(track, id, label) {
 
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
-  setupSocketConnection();
+  // setupSocketConnection();
 
-  mediasoupPeer = new SimpleMediasoupPeer(socket);
+  mediasoupPeer = new SimpleMediasoupPeer();
   document.getElementById("sendCamera").addEventListener(
     "click",
     () => {

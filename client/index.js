@@ -46,18 +46,19 @@ this.desiredPeerConnections = new Set();
 */
 
 import * as mediasoupClient from "mediasoup-client";
+import { io } from "socket.io-client";
 
 export class SimpleMediasoupPeer {
-  constructor(socket) {
+  constructor(room) {
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
-    this.socket = socket;
+    this.socket = io("localhost:3000");
 
     // add promisified socket request to make our lives easier
     this.socket.request = (type, data = {}) => {
       return new Promise((resolve) => {
-        socket.emit(type, data, resolve);
+        this.socket.emit(type, data, resolve);
       });
     };
 
@@ -70,6 +71,20 @@ export class SimpleMediasoupPeer {
       await this.disconnect();
       await this.initialize();
     });
+
+    this.socket.emit("joinRoom", { room: "my-cool-room" });
+
+    // this.socket.on("clients", (ids) => {
+    //   console.log("Got clients: ",ids)
+    // });
+
+    // this.socket.on("clientConnected", (id) => {
+    //   console.log("Client joined:", id);
+    // });
+
+    // this.socket.on("clientDisconnected", (id) => {
+    //   console.log("Client disconnected:", id);
+    // });
 
     this.producers = {};
     this.consumers = {};

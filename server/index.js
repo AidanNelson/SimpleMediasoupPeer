@@ -1,116 +1,8 @@
-const os = require("os");
 const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
+const { Server } = require("socket.io");
 
-var ip = require('ip');
-const LOCAL_IP_ADDRESS = ip.address();
-console.log("Local IP Address: ",LOCAL_IP_ADDRESS);
-
-
-const config = {
-  mediasoup: {
-    // Number of mediasoup workers to launch.
-    numWorkers: Object.keys(os.cpus()).length,
-    // mediasoup WorkerSettings.
-    // See https://mediasoup.org/documentation/v3/mediasoup/api/#WorkerSettings
-    workerSettings: {
-      logLevel: "warn",
-      logTags: [
-        "info",
-        "ice",
-        "dtls",
-        "rtp",
-        "srtp",
-        "rtcp",
-        "rtx",
-        "bwe",
-        "score",
-        "simulcast",
-        "svc",
-        "sctp",
-      ],
-      rtcMinPort: 40000,
-      rtcMaxPort: 49999,
-    },
-    // mediasoup Router options.
-    // See https://mediasoup.org/documentation/v3/mediasoup/api/#RouterOptions
-    routerOptions: {
-      mediaCodecs: [
-        {
-          kind: "audio",
-          mimeType: "audio/opus",
-          clockRate: 48000,
-          channels: 2,
-        },
-        {
-          kind: "video",
-          mimeType: "video/VP8",
-          clockRate: 90000,
-          parameters: {
-            "x-google-start-bitrate": 1000,
-          },
-        },
-        {
-          kind: "video",
-          mimeType: "video/VP9",
-          clockRate: 90000,
-          parameters: {
-            "profile-id": 2,
-            "x-google-start-bitrate": 1000,
-          },
-        },
-        {
-          kind: "video",
-          mimeType: "video/h264",
-          clockRate: 90000,
-          parameters: {
-            "packetization-mode": 1,
-            "profile-level-id": "4d0032",
-            "level-asymmetry-allowed": 1,
-            "x-google-start-bitrate": 1000,
-          },
-        },
-        {
-          kind: "video",
-          mimeType: "video/h264",
-          clockRate: 90000,
-          parameters: {
-            "packetization-mode": 1,
-            "profile-level-id": "42e01f",
-            "level-asymmetry-allowed": 1,
-            "x-google-start-bitrate": 1000,
-          },
-        },
-      ],
-    },
-    // mediasoup WebRtcTransport options for WebRTC endpoints (mediasoup-client,
-    // libmediasoupclient).
-    // See https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions
-    webRtcTransportOptions: {
-      listenIps: [
-        {
-          ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "1.2.3.4",
-          announcedIp: process.env.ANNOUNCED_IP || null,
-        },
-      ],
-      initialAvailableOutgoingBitrate: 1000000,
-      minimumAvailableOutgoingBitrate: 600000,
-      maxSctpMessageSize: 262144,
-      // Additional options that are not part of WebRtcTransportOptions.
-      maxIncomingBitrate: 1500000,
-    },
-    // mediasoup PlainTransport options for legacy RTP endpoints (FFmpeg,
-    // GStreamer).
-    // See https://mediasoup.org/documentation/v3/mediasoup/api/#PlainTransportOptions
-    plainTransportOptions: {
-      listenIp: {
-        ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "1.2.3.4",
-        announcedIp: process.env.ANNOUNCED_IP,
-      },
-      maxSctpMessageSize: 262144,
-    },
-  },
-};
+const config = require("./config");
 
 /*
 Class Information:
@@ -155,18 +47,67 @@ this.peers = {
 */
 
 class SimpleMediasoupPeerServer {
-  constructor(io) {
-    this.io = io;
+  constructor() {
+    // this.io = io;
+    this.io = new Server({
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true,
+      },
+    });
+    this.rooms = {};
     this.io.on("connection", (socket) => {
+      console.log("Socket joined:", socket.id);
       this.addPeer(socket);
+
+      // tell the new client about all other clients
+      // const currentClients = this.io.of(nspName).sockets.keys();
+      // console.log(`Current clients in namespace '${nspName}':`, currentClients);
+      // socket.emit("clients", currentClients);
+
+      // borrowed from https://github.com/vanevery/p5LiveMedia/blob/master/server.js
+      socket.on("joinRoom", (data) => {
+        if (!this.rooms.hasOwnProperty(data.room)) {
+          console.log(Date.now(), socket.id, "Room doesn't exist, creating it");
+          this.rooms[data.room] = new Set();
+        }
+        // we'll keep track of roomIds in this.rooms, and also add the socket to the socket.io room
+        this.rooms[data.room].add(socket.id);
+        this.peers[socket.id].room = data.room;
+        socket.join(data.room);
+      });
 
       socket.on("disconnect", () => {
         this.removePeer(socket.id);
       });
+
       socket.on("mediasoupSignaling", (data, callback) => {
         this.handleSocketRequest(socket.id, data, callback);
       });
     });
+    // this.io.on("connection", (socket) => {
+    //   console.log(
+    //     "User " +
+    //       socket.id +
+    //       " connected, there are " +
+    //       io.engine.clientsCount +
+    //       " clients connected"
+    //   );
+
+    //   socket.emit("clients", Object.keys(clients));
+    //   socket.broadcast.emit("clientConnected", socket.id);
+
+    //   // then add to our clients object
+    //   clients[socket.id] = {}; // store initial client state here
+
+    //   socket.on("disconnect", () => {
+    //     delete clients[socket.id];
+    //     io.sockets.emit("clientDisconnected", socket.id);
+    //     console.log("client disconnected: ", socket.id);
+    //   });
+    // });
+    this.io.listen(3000);
 
     this.peers = {};
     this.initialize();
@@ -182,18 +123,51 @@ class SimpleMediasoupPeerServer {
   }
 
   sendSyncData() {
-    let producers = this.getSyncData();
-    this.io.sockets.emit("mediasoupSignaling", {
-      type: "availableProducers",
-      data: producers,
-    });
+    console.log("Sending sync data", this.rooms);
+    for (const roomId in this.rooms) {
+      console.log("sending sync data to room", roomId);
+      let producers = this.getSyncData(roomId);
+      console.log(producers);
+      this.io.to(roomId).emit("mediasoupSignaling", {
+        type: "availableProducers",
+        data: producers,
+      });
+    }
+    // this.io.sockets.emit(
+  }
+
+  /*
+    Returns an object structured as follows:
+    {
+        peerId1: {},
+        peerId2: {
+            'producerId12345': {label: 'camera', peerId: '12jb12kja3', broadcast: true}
+            'producerId88888': {label: 'microphone', peerId: '12jb12kja3'}
+        }
+    }
+    
+    */
+  getSyncData(roomId) {
+    let syncData = {};
+    for (const peerId in this.peers) {
+      if (this.rooms[roomId].has(peerId)) {
+        syncData[peerId] = {};
+        for (const producerId in this.peers[peerId].producers) {
+          let peerRouterIndex = this.peers[peerId].routerIndex;
+          const producer =
+            this.peers[peerId].producers[producerId][peerRouterIndex];
+          syncData[peerId][producerId] = producer.appData;
+        }
+      }
+    }
+    return syncData;
   }
 
   async initialize() {
     this.workers = [];
     this.routers = [];
 
-    for (let i = 0; i < Object.keys(os.cpus()).length; i++) {
+    for (let i = 0; i < config.mediasoup.numWorkers; i++) {
       let { worker, router } = await this.startMediasoupWorker();
       this.workers[i] = worker;
       this.routers[i] = router;
@@ -203,8 +177,7 @@ class SimpleMediasoupPeerServer {
   getNewPeerRouterIndex() {
     this.currentPeerRouterIndex = this.currentPeerRouterIndex + 1;
 
-
-    if (this.currentPeerRouterIndex >= this.routers.length){
+    if (this.currentPeerRouterIndex >= this.routers.length) {
       this.currentPeerRouterIndex = 0;
     }
     console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
@@ -218,6 +191,7 @@ class SimpleMediasoupPeerServer {
   addPeer(socket) {
     this.peers[socket.id] = {
       socket: socket,
+      room: undefined,
       routerIndex: this.getNewPeerRouterIndex(),
       transports: {},
       producers: {},
@@ -225,11 +199,21 @@ class SimpleMediasoupPeerServer {
     };
   }
   removePeer(id) {
-    for (const transportId in this.peers[id].transports) {
+    const peer = this.peers[id];
+
+    // close transports
+    for (const transportId in peer.transports) {
       console.log("Closing transport");
-      this.peers[id].transports[transportId].close();
+      peer.transports[transportId].close();
     }
-    delete this.peers[id];
+
+    // remove from rooms
+    if (peer.room) {
+      this.rooms[peer.room].delete(id);
+    }
+
+    // remove from this.peers
+    delete this.peers[id];  
   }
 
   async startMediasoupWorker() {
@@ -387,36 +371,15 @@ class SimpleMediasoupPeerServer {
   }
 
   /*
-    Returns an object structured as follows:
-    {
-        peerId1: {},
-        peerId2: {
-            'producerId12345': {label: 'camera', peerId: '12jb12kja3', broadcast: true}
-            'producerId88888': {label: 'microphone', peerId: '12jb12kja3'}
-        }
-    }
-    
-    */
-  getSyncData() {
-    let syncData = {};
-    for (const peerId in this.peers) {
-      syncData[peerId] = {};
-      for (const producerId in this.peers[peerId].producers) {
-        let peerRouterIndex = this.peers[peerId].routerIndex;
-        const producer =
-          this.peers[peerId].producers[producerId][peerRouterIndex];
-        syncData[peerId][producerId] = producer.appData;
-      }
-    }
-    return syncData;
-  }
-
-  /*
     Given a consumingPeerId, a producingPeerId and a producerId, this function will 
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+  async getOrCreateConsumerForPeer(
+    consumingPeerId,
+    producingPeerId,
+    producerId
+  ) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -426,7 +389,7 @@ class SimpleMediasoupPeerServer {
 
     console.log("Creating new consumer!");
 
-    // use our queue to avoid multiple peers requesting the same pipeProducer 
+    // use our queue to avoid multiple peers requesting the same pipeProducer
     // at the same time
     this.queue
       .push(async () => {
@@ -475,7 +438,7 @@ class SimpleMediasoupPeerServer {
           consumingPeerId,
           producerOrPipeProducer
         );
-        
+
         if (!newConsumer) return null;
 
         // add new consumer to the consuming peer's consumers object:
@@ -494,7 +457,9 @@ class SimpleMediasoupPeerServer {
       let transport = this.getRecvTransportForPeer(consumingPeerId);
 
       if (!transport) {
-        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`)
+        console.warn(
+          `No receive transport found for peer with ID ${consumingPeerId}`
+        );
         return null;
       }
       consumer = await transport.consume({
