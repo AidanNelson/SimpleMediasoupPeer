@@ -1,9 +1,12 @@
 /*
-SimpleMediasoupPeer Client Side Data Structure:
+simple-mediasoup-peer-client
+by Aidan Nelson, 2022
 
-// these are the tracks we would like to produce
-// used for re-initializing when client experiences
-// a change in socket ID
+
+these are the tracks we would like to produce
+used for re-initializing when client experiences
+a change in socket ID
+
 this.tracksToProduce = {
     camera: {
       track,
@@ -57,7 +60,23 @@ export class SimpleMediasoupPeer {
 
     this.device = null;
     this.currentRoomId = null;
+
+    this.publiclyExposedEvents = new Set(["peer", "disconnect", "track"]);
+
     this.socket = io(options.server);
+
+    this.producers = {};
+    this.consumers = {};
+
+    this.sendTransport = null;
+    this.recvTransport = null;
+
+    this.tracksToProduce = {};
+
+    this.latestAvailableProducers = {};
+    this.desiredPeerConnections = new Set();
+
+    this.userDefinedCallbacks = {}; // this is where we'll store callbacks for various events
 
     // add promisified socket request to make our lives easier
     this.socket.request = (type, data = {}) => {
@@ -66,14 +85,16 @@ export class SimpleMediasoupPeer {
       });
     };
 
+    // all mediasoupSignaling will come through on this socket event
     this.socket.on("mediasoupSignaling", (data) => {
       this.handleSocketMessage(data);
     });
 
     this.socket.on("connect", async () => {
       console.log("Connected to Socket Server with ID: ", this.socket.id);
-      await this.disconnect();
-      await this.initialize();
+      await this.disconnectFromMediasoup();
+      await this.initializeMediasoupConnection();
+
       if (options.roomId) {
         this.joinRoom(options.roomId);
       } else {
@@ -92,22 +113,12 @@ export class SimpleMediasoupPeer {
     // this.socket.on("clientDisconnected", (id) => {
     //   console.log("Client disconnected:", id);
     // });
-
-    this.producers = {};
-    this.consumers = {};
-
-    this.sendTransport = null;
-    this.recvTransport = null;
-
-    this.tracksToProduce = {};
-
-    this.latestAvailableProducers = {};
-    this.desiredPeerConnections = new Set();
   }
 
   async joinRoom(roomId) {
     if (!roomId) {
       console.log("Please enter a room id to join");
+      return;
     }
 
     if (this.currentRoomId === roomId) {
@@ -137,56 +148,31 @@ export class SimpleMediasoupPeer {
 
   // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
   on(event, callback) {
-    switch (event) {
-      case "track": {
-        console.log(`Setting ${event} callback.`);
-        this.onTrackCallback = callback;
-        break;
-      }
-
-      case "peer": {
-        console.log(`Setting ${event} callback.`);
-        this.onPeerCallback = callback;
-        break;
-      }
-
-      case "disconnect": {
-        console.log(`Setting ${event} callback.`);
-        this.onDisconnectCallback = callback;
-      }
-
-      default: {
-        console.log(`Whoops!  No ${event} event exists.`);
-      }
-    }
-  }
-
-  callOnTrackCallback({ track, peerId, label }) {
-    if (this.onTrackCallback) {
-      this.onTrackCallback(track, peerId, label);
+    if (this.publiclyExposedEvents.has(event)) {
+      console.log(`Setting ${event} callback.`);
+      this.userDefinedCallbacks[event] = callback;
     } else {
-      console.log("no onTrack Callback Set");
+      console.error(`Whoops!  No ${event} event exists.`);
     }
   }
 
-  callOnPeerCallback(peerId) {
-    if (!this.onPeerCallback) {
-      console.log("Please set a callback for peer event!");
-      return;
+  callEventCallback(event, data) {
+    const callback = this.userDefinedCallbacks[event];
+    if (callback) {
+      callback(data);
+    } else {
+      console.log(`No callback defined for ${event} event`);
     }
-    this.onPeerCallback(peerId);
   }
 
-  callOnDisconnectCallback(peerId) {
-    if (!this.onPeerCallback) {
-      console.log("Please set a callback for disconnect event!");
-      return;
-    }
-    this.onDisconnectCallback(peerId);
-  }
-
-  async disconnect() {
+  async disconnectFromMediasoup() {
     console.log("Clearing SimpleMediasoupPeer!");
+
+    // may be redundant because server already handles transportclosed events...
+    for (const producerId in this.consumers) {
+      const consumer = this.consumers[producerId];
+      this.closeConsumer(consumer);
+    }
 
     if (this.sendTransport) {
       this.sendTransport.close();
@@ -198,14 +184,17 @@ export class SimpleMediasoupPeer {
     this.producers = {};
     this.consumers = {};
 
+    this.device = null;
+
     this.sendTransport = null;
     this.recvTransport = null;
 
     this.latestAvailableProducers = {};
   }
 
-  async initialize() {
+  async initializeMediasoupConnection() {
     console.log("Initializing SimpleMediasoupPeer!");
+
     this.setupMediasoupDevice();
     await this.connectToMediasoupRouter();
     await this.createSendTransport();
@@ -390,7 +379,7 @@ export class SimpleMediasoupPeer {
       });
     }
 
-    this.callOnTrackCallback({
+    this.callEventCallback("track", {
       track: consumer.track,
       peerId: consumer.appData.peerId,
       label: consumer.appData.label,
@@ -403,7 +392,7 @@ export class SimpleMediasoupPeer {
     for (const peerId in syncData) {
       if (!this.latestAvailableProducers[peerId]) {
         if (peerId !== this.socket.id) {
-          this.callOnPeerCallback(peerId);
+          this.callEventCallback("peer", peerId);
         }
       }
     }
@@ -412,7 +401,7 @@ export class SimpleMediasoupPeer {
     for (const peerId in this.latestAvailableProducers) {
       if (!syncData[peerId]) {
         if (peerId !== this.socket.id) {
-          this.callOnDisconnectCallback(peerId);
+          this.callEventCallback("disconnect", peerId);
         }
       }
     }
@@ -482,17 +471,21 @@ export class SimpleMediasoupPeer {
     this.callOnDisconnectCallback(otherPeerId);
     for (let producerId in this.consumers[otherPeerId]) {
       const consumer = this.consumers[otherPeerId][producerId];
-      consumer.close();
-      this.socket.request("mediasoupSignaling", {
-        type: "closeConsumer",
-        data: {
-          producerId: consumer.producerId,
-        },
-      });
-      console.log(consumer);
+      this.closeConsumer(consumer);
     }
     delete this.consumers[otherPeerId];
     this.desiredPeerConnections.delete(otherPeerId);
+  }
+
+  closeConsumer(consumer) {
+    console.log("Closing consumer:", consumer.id);
+    consumer.close();
+    this.socket.request("mediasoupSignaling", {
+      type: "closeConsumer",
+      data: {
+        producerId: consumer.producerId,
+      },
+    });
   }
 
   async pausePeer(producingPeerId) {

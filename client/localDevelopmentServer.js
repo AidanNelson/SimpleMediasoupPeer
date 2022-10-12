@@ -13,7 +13,7 @@ const server = http.createServer(app);
 // serve the client-side files
 app.use(express.static(process.cwd() + "/dist"));
 
-const port = 60000;
+const port = 8080;
 server.listen(port);
 console.log(
   `Local development server listening on http://localhost:${port}.  Use this link for library file: http://localhost:${port}/SimpleMediasoupPeer.js`

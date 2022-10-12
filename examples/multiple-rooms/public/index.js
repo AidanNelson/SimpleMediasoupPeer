@@ -209,11 +209,11 @@ function updateHTMLElementsFromTrack(track, id, label) {
   }
 }
 
-function gotTrack(track, id, label) {
+function gotTrack({ track, peerId, label }) {
   console.log(
-    `Got track with label ${label} from ${id}.   Kind: ${track.kind}`
+    `Got track with label ${label} from ${peerId}.   Kind: ${track.kind}`
   );
-  updateHTMLElementsFromTrack(track, id, label);
+  updateHTMLElementsFromTrack(track, peerId, label);
 }
 
 function main() {
@@ -254,13 +254,17 @@ function main() {
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
   mediasoupPeer.on("peer", (peerId) => {
-    console.log("got new peer!", peerId);
+    console.log("Peer joined:", peerId);
     addPeer(peerId);
   });
 
   mediasoupPeer.on("disconnect", (peerId) => {
-    console.log("Disconnected from peer!", peerId);
+    console.log("Peer disconnected:", peerId);
     removePeer(peerId);
+  });
+  // test with non-existant event
+  mediasoupPeer.on("sosos", () => {
+    console.log("some callback");
   });
 }
 

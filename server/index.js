@@ -93,7 +93,7 @@ class SimpleMediasoupPeerServer {
 
     setInterval(() => {
       this.sendSyncDataToAllRooms();
-    }, 5000);
+    }, 1000);
   }
 
   sendSyncDataToAllRooms() {
