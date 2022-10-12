@@ -12,36 +12,66 @@ This library can be installed from npm (the node package manager).
 npm install simple-mediasoup-peer-server
 ```
 
-Once installed, simply create a new SimpleMediasoupPeerServer object and pass in a reference to your socket.io server:
+Once installed, create a new SimpleMediasoupPeerServer:
 
 ```js
-const io = require("socket.io")();
-new SimpleMediasoupPeerServer(io);
+new SimpleMediasoupPeerServer();
 ```
 
-You're done. 🙃 By default, this server will create a Mediasoup worker and router for every available CPU core. Working on an 8-core server, you'll have 8 Mediasoup workers and 8 Mediasoup routers available.
+You're done! 🙃 By default, this server will create a Mediasoup worker and router for every available CPU core. Working on an 8-core server, you'll have 8 Mediasoup workers and 8 Mediasoup routers available.
 
 ### Client-Side Setup
 
 Add the client-side library to your code using a script tag:
+
 ```js
-<script src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js" type="text/javascript"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+  type="text/javascript"
+></script>
 ```
 
 Or, if you're using a bundler, install it directly from npm:
+
 ```bash
 npm install simple-mediasoup-peer-client
 ```
-Once installed, initialize a new SimpleMediasoupPeer and pass in your socket.io Socket object.  
+
+Once installed, initialize a new SimpleMediasoupPeer.
 
 ```js
-const socket = io();
-const peer = new SimpleMediasoupPeer(socket);
+// available options for initializing a new peer
+const options = {
+  autoConnect: false, // should the peer automatically connect to available tracks
+  server: "http://localhost:3000",
+  roomId: "MyCoolRoomName123",
+};
+const peer = new SimpleMediasoupPeer(options);
 ```
-This peer will automatically connect to the signaling server you previously set up.
+
+This peer will automatically connect to the signaling server you previously set up and join the room specified.
 
 This peer has the following methods available:
+
 ```js
+// deal with incoming tracks
+peer.on("track", ({ peerId, track, info }) => {
+  // do something with this new track
+});
+
+// deal with new peers in the room
+peer.on("peer", ({ peerId }) => {
+  // do something with this new track
+});
+
+// deal with peers disconnecting
+peer.on("disconnect", ({ peerId }) => {
+  // do something with this new track
+});
+
+// join a room!
+peer.joinRoom("MyCoolRoomName");
+
 // add a MediaStream track to your peer object
 peer.addTrack(videoTrack, "webcam");
 
@@ -50,11 +80,6 @@ peer.connectToPeer(otherPeerID);
 
 // broadcast a track (so that connected peers auto-subscribe)
 peer.addTrack(videoTrack, "webcam", true);
-
-// deal with incoming tracks
-peer.on("track", (incomingTrack, peerId, label) => {
-    // do something with this new track    
-});
 
 // resume all conected tracks from a given peer
 peer.resumePeer(otherPeerID);
@@ -67,11 +92,47 @@ Note that this library does not deal with getUserMedia requests, keeping track o
 
 ## Examples
 
-* [Simple Video Chat](./examples/simple-video-chat/)
+- [Simple Video Chat](./examples/simple-video-chat/)
 
 ### How many peers can I support?
 
 That depends on how they are several things: total number of connections, the server you are using, and the quality of the media stream you are sending.
+
+## Development
+
+Interested in developing on this library locally? Read on!
+
+To develop on the server-side library (simple-mediasoup-peer-server) using [npm link](https://docs.npmjs.com/cli/v8/commands/npm-link):
+
+```bash
+# enter the server side library folder
+cd server
+# link the local code to npm
+npm link
+
+# then, enter your project folder
+cd /PATH/TO/YOUR/PROJECT/FOLDER
+# and complete the link to the local copy of the server library
+npm link simple-mediasoup-peer-server
+```
+
+To develop on the client-side library (simple-mediasoup-peer-client):
+
+```bash
+# enter the client side library folder
+cd client
+# start the build system (parcel) and a local development server
+npm run start
+```
+
+Finally, in your index.html code, you will need to load the client-side library from the local development server
+
+```html
+<script
+  src="http://localhost:8080/SimpleMediasoupPeer.js"
+  type="text/javascript"
+></script>
+```
 
 ## To Do
 
@@ -111,6 +172,6 @@ That depends on how they are several things: total number of connections, the se
 - [x] - when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
 
 ## Examples
+
 - [x] - simple example
 - [x] - broadcast example
-

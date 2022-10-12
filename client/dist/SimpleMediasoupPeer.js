@@ -537,8 +537,10 @@ parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "SimpleMediasoupPeer", ()=>SimpleMediasoupPeer);
 /*
 simple-mediasoup-peer-client
-by Aidan Nelson, 2022
+Aidan Nelson, 2022
+https://github.com/AidanNelson/SimpleMediasoupPeer/
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 these are the tracks we would like to produce
 used for re-initializing when client experiences
@@ -594,9 +596,8 @@ class SimpleMediasoupPeer {
         if (this.currentRoomId === roomId) {
             console.log("Already joined room: ", roomId);
             return;
-        }
-        // if we're already in a different room, disconnect from all peers therein
-        if (this.currentRoomId !== roomId) {
+        } else {
+            // if we're in a different room, disconnect from all peers therein
             this.socket.request("mediasoupSignaling", {
                 type: "leaveRoom",
                 data: {
@@ -614,13 +615,6 @@ class SimpleMediasoupPeer {
             }
         });
         this.currentRoomId = roomId;
-    }
-    // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
-    on(event, callback) {
-        if (this.publiclyExposedEvents.has(event)) {
-            console.log(`Setting ${event} callback.`);
-            this.userDefinedCallbacks[event] = callback;
-        } else console.error(`Whoops!  No ${event} event exists.`);
     }
     callEventCallback(event, data) {
         const callback = this.userDefinedCallbacks[event];
@@ -741,7 +735,7 @@ class SimpleMediasoupPeer {
         for(const peerId in this.latestAvailableProducers){
             if (peerId === this.socket.id) continue; // ignore our own streams
             for(const producerId in this.latestAvailableProducers[peerId]){
-                const shouldConsume = this.desiredPeerConnections.has(peerId) || this.latestAvailableProducers[peerId][producerId].broadcast;
+                const shouldConsume = this.desiredPeerConnections.has(peerId) || this.latestAvailableProducers[peerId][producerId].broadcast || this.options.autoConnect;
                 if (shouldConsume) {
                     const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
                     console.log("existing consumer:", consumer);
@@ -839,29 +833,6 @@ class SimpleMediasoupPeer {
         }
         delete this.consumers[otherPeerId];
     }
-    //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-    //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-    // public methods
-    connectToPeer(peerId) {
-        console.log("Attempting to connect to peer", peerId);
-        this.desiredPeerConnections.add(peerId);
-        for(const producerId in this.latestAvailableProducers[peerId]){
-            const existingConsumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-            console.log("existingConsumer:", existingConsumer);
-            if (!existingConsumer) this.requestConsumer(peerId, producerId);
-        }
-    }
-    /*
-  This function closes all connections to a given peer
-  */ disconnectFromPeer(otherPeerId) {
-        this.callOnDisconnectCallback(otherPeerId);
-        for(let producerId in this.consumers[otherPeerId]){
-            const consumer = this.consumers[otherPeerId][producerId];
-            this.closeConsumer(consumer);
-        }
-        delete this.consumers[otherPeerId];
-        this.desiredPeerConnections.delete(otherPeerId);
-    }
     closeConsumer(consumer) {
         console.log("Closing consumer:", consumer.id);
         consumer.close();
@@ -872,8 +843,43 @@ class SimpleMediasoupPeer {
             }
         });
     }
-    async pausePeer(producingPeerId) {
-        const consumers = this.consumers[producingPeerId];
+    //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+    //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+    // public methods
+    /*
+  add a callback for a given event
+  */ on(event, callback) {
+        if (this.publiclyExposedEvents.has(event)) {
+            console.log(`Setting ${event} callback.`);
+            this.userDefinedCallbacks[event] = callback;
+        } else console.error(`Whoops!  No ${event} event exists.`);
+    }
+    /*
+  connect to a given peer
+  */ connectToPeer(otherPeerId) {
+        console.log("Attempting to connect to peer", otherPeerId);
+        this.desiredPeerConnections.add(otherPeerId);
+        for(const producerId in this.latestAvailableProducers[otherPeerId]){
+            const existingConsumer = this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
+            console.log("existingConsumer:", existingConsumer);
+            if (!existingConsumer) this.requestConsumer(otherPeerId, producerId);
+        }
+    }
+    /*
+  disconnect from a given peer
+  */ disconnectFromPeer(otherPeerId) {
+        this.callEventCallback("disconnect", otherPeerId);
+        for(let producerId in this.consumers[otherPeerId]){
+            const consumer = this.consumers[otherPeerId][producerId];
+            this.closeConsumer(consumer);
+        }
+        delete this.consumers[otherPeerId];
+        this.desiredPeerConnections.delete(otherPeerId);
+    }
+    /*
+  pause all tracks from a given peer
+  */ async pausePeer(otherPeerId) {
+        const consumers = this.consumers[otherPeerId];
         for(const producerId in consumers){
             const consumer = consumers[producerId];
             // by default do not let us pause a broadcasts
@@ -890,8 +896,10 @@ class SimpleMediasoupPeer {
             }
         }
     }
-    async resumePeer(producingPeerId) {
-        const consumers = this.consumers[producingPeerId];
+    /*
+  resume all tracks from a given peer
+  */ async resumePeer(otherPeerId) {
+        const consumers = this.consumers[otherPeerId];
         for(const producerId in consumers){
             const consumer = consumers[producerId];
             if (!consumer) continue;
@@ -1030,19 +1038,17 @@ class SimpleMediasoupPeer {
         });
         console.log("Created receive transport!");
     }
-    constructor(options = {
-        server: "localhost:3000",
-        roomId: null
-    }){
-        console.log("Setting up new MediasoupPeer with the following options:", options);
+    constructor(options = {}){
+        const defaultOptions = {
+            autoConnect: true,
+            server: "localhost:3000",
+            roomId: null
+        };
+        this.options = Object.assign(defaultOptions, options);
+        console.log("Setting up new MediasoupPeer with the following options:", this.options);
         this.device = null;
         this.currentRoomId = null;
-        this.publiclyExposedEvents = new Set([
-            "peer",
-            "disconnect",
-            "track"
-        ]);
-        this.socket = (0, _socketIoClient.io)(options.server);
+        this.socket = (0, _socketIoClient.io)(this.options.server);
         this.producers = {};
         this.consumers = {};
         this.sendTransport = null;
@@ -1050,7 +1056,12 @@ class SimpleMediasoupPeer {
         this.tracksToProduce = {};
         this.latestAvailableProducers = {};
         this.desiredPeerConnections = new Set();
-        this.userDefinedCallbacks = {}; // this is where we'll store callbacks for various events
+        this.publiclyExposedEvents = new Set([
+            "peer",
+            "disconnect",
+            "track"
+        ]);
+        this.userDefinedCallbacks = {};
         // add promisified socket request to make our lives easier
         this.socket.request = (type, data = {})=>{
             return new Promise((resolve)=>{
@@ -1065,7 +1076,7 @@ class SimpleMediasoupPeer {
             console.log("Connected to Socket Server with ID: ", this.socket.id);
             await this.disconnectFromMediasoup();
             await this.initializeMediasoupConnection();
-            if (options.roomId) this.joinRoom(options.roomId);
+            if (this.options.roomId) this.joinRoom(this.options.roomId);
             else console.log("No room Id set. Please call 'joinRoom' to connect!");
         });
     // this.socket.on("clients", (ids) => {
@@ -1081,7 +1092,7 @@ class SimpleMediasoupPeer {
 }
 window.SimpleMediasoupPeer = SimpleMediasoupPeer;
 
-},{"mediasoup-client":"1Q21H","socket.io-client":"fR5lm","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"1Q21H":[function(require,module,exports) {
+},{"mediasoup-client":"1Q21H","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU","socket.io-client":"fR5lm"}],"1Q21H":[function(require,module,exports) {
 "use strict";
 var __createBinding = this && this.__createBinding || (Object.create ? function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -13341,6 +13352,36 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
+},{}],"5oERU":[function(require,module,exports) {
+exports.interopDefault = function(a) {
+    return a && a.__esModule ? a : {
+        default: a
+    };
+};
+exports.defineInteropFlag = function(a) {
+    Object.defineProperty(a, "__esModule", {
+        value: true
+    });
+};
+exports.exportAll = function(source, dest) {
+    Object.keys(source).forEach(function(key) {
+        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
+        Object.defineProperty(dest, key, {
+            enumerable: true,
+            get: function() {
+                return source[key];
+            }
+        });
+    });
+    return dest;
+};
+exports.export = function(dest, destName, get) {
+    Object.defineProperty(dest, destName, {
+        enumerable: true,
+        get: get
+    });
+};
+
 },{}],"fR5lm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
@@ -14491,37 +14532,7 @@ const ERROR_PACKET = {
     data: "parser error"
 };
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"5oERU":[function(require,module,exports) {
-exports.interopDefault = function(a) {
-    return a && a.__esModule ? a : {
-        default: a
-    };
-};
-exports.defineInteropFlag = function(a) {
-    Object.defineProperty(a, "__esModule", {
-        value: true
-    });
-};
-exports.exportAll = function(source, dest) {
-    Object.keys(source).forEach(function(key) {
-        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
-        Object.defineProperty(dest, key, {
-            enumerable: true,
-            get: function() {
-                return source[key];
-            }
-        });
-    });
-    return dest;
-};
-exports.export = function(dest, destName, get) {
-    Object.defineProperty(dest, destName, {
-        enumerable: true,
-        get: get
-    });
-};
-
-},{}],"k2mYo":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"k2mYo":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _commonsJs = require("./commons.js");

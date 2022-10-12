@@ -1,10 +1,10 @@
-const mediasoup = require("mediasoup");
-const { AwaitQueue } = require("awaitqueue");
-const { Server } = require("socket.io");
-
-const config = require("./config");
-
 /*
+simple-mediasoup-peer-server
+Aidan Nelson, 2022
+https://github.com/AidanNelson/SimpleMediasoupPeer/
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Class Information:
 this.workers = [];
 this.routers = [];
@@ -42,9 +42,13 @@ this.peers = {
         }
     }
 }
-
-
 */
+
+const mediasoup = require("mediasoup");
+const { AwaitQueue } = require("awaitqueue");
+const { Server } = require("socket.io");
+
+const config = require("./config");
 
 class SimpleMediasoupPeerServer {
   constructor(options = { port: 3000 }) {
