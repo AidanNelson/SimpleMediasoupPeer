@@ -78,7 +78,8 @@ export class SimpleMediasoupPeer {
     this.sendTransport = null;
     this.recvTransport = null;
 
-    this.tracksToProduce = {};
+    // this.streamsToProduce = []; // store an array of mediaStreams which we should produce (in case of socket disconnection)
+    // this.tracksToProduce = [];
 
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
@@ -196,27 +197,43 @@ export class SimpleMediasoupPeer {
     await this.createSendTransport();
     await this.createRecvTransport();
 
-    for (const label in this.tracksToProduce) {
-      const track = this.tracksToProduce[label].track;
-      const broadcast = this.tracksToProduce[label].broadcast;
-      const customEncodings = this.tracksToProduce[label].customEncodings;
-      this.addProducer(track, label, broadcast, customEncodings);
-    }
+    // for (const tra of this.tracksToProduce) {
+    //   const track = this.tracksToProduce[label].track;
+    //   const broadcast = this.tracksToProduce[label].broadcast;
+    //   const customEncodings = this.tracksToProduce[label].customEncodings;
+    //   this.addProducer(track, label, broadcast, customEncodings);
+    // }
   }
 
+  async addStream(mediaStream) {
+    console.log("Adding stream");
+
+    const videoTracks = mediaStream.getVideoTracks();
+    const audioTracks = mediaStream.getAudioTracks();
+
+    for (const videoTrack of videoTracks) {
+      console.log(videoTrack);
+      this.addTrack(videoTrack);
+    }
+
+    for (const audioTrack of audioTracks) {
+      console.log(audioTrack);
+      this.addTrack(audioTrack);
+    }
+  }
   async addTrack(track, label, broadcast = false, customEncodings = false) {
-    this.tracksToProduce[label] = {
-      track,
-      broadcast,
-      customEncodings,
-    };
-    console.log(this.tracksToProduce);
+    // this.tracksToProduce[label] = {
+    //   track,
+    //   broadcast,
+    //   customEncodings,
+    // };
     await this.addProducer(track, label, broadcast, customEncodings);
   }
 
   async addProducer(track, label, broadcast, customEncodings) {
     let producer;
 
+    if (!label) label = track.kind;
     if (this.producers[label]) {
       console.warn(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });

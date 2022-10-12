@@ -107,17 +107,7 @@ async function sendCamera() {
   if (!localStream) {
     await startCamera();
   }
-
-  const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
-
-  if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "video");
-  }
-
-  if (audioTrack) {
-    mediasoupPeer.addTrack(audioTrack, "audio");
-  }
+  mediasoupPeer.addStream(localStream);
 }
 
 async function startCamera() {
