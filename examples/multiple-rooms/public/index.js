@@ -257,6 +257,11 @@ function main() {
     console.log("got new peer!", peerId);
     addPeer(peerId);
   });
+
+  mediasoupPeer.on("disconnect", (peerId) => {
+    console.log("Disconnected from peer!", peerId);
+    removePeer(peerId);
+  });
 }
 
 main();

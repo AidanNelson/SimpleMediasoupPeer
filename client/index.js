@@ -49,11 +49,15 @@ import * as mediasoupClient from "mediasoup-client";
 import { io } from "socket.io-client";
 
 export class SimpleMediasoupPeer {
-  constructor() {
-    console.log("Setting up new MediasoupPeer");
+  constructor(options = { server: "localhost:3000", roomId: null }) {
+    console.log(
+      "Setting up new MediasoupPeer with the following options:",
+      options
+    );
 
     this.device = null;
-    this.socket = io("localhost:3000");
+    this.currentRoomId = null;
+    this.socket = io(options.server);
 
     // add promisified socket request to make our lives easier
     this.socket.request = (type, data = {}) => {
@@ -70,6 +74,11 @@ export class SimpleMediasoupPeer {
       console.log("Connected to Socket Server with ID: ", this.socket.id);
       await this.disconnect();
       await this.initialize();
+      if (options.roomId) {
+        this.joinRoom(options.roomId);
+      } else {
+        console.log("No room Id set. Please call 'joinRoom' to connect!");
+      }
     });
 
     // this.socket.on("clients", (ids) => {
@@ -96,14 +105,34 @@ export class SimpleMediasoupPeer {
     this.desiredPeerConnections = new Set();
   }
 
-  joinRoom(roomId) {
+  async joinRoom(roomId) {
     if (!roomId) {
       console.log("Please enter a room id to join");
     }
-    this.socket.request("mediasoupSignaling", {
+
+    if (this.currentRoomId === roomId) {
+      console.log("Already joined room: ", roomId);
+      return;
+    }
+
+    // if we're already in a different room, disconnect from all peers therein
+    if (this.currentRoomId !== roomId) {
+      this.socket.request("mediasoupSignaling", {
+        type: "leaveRoom",
+        data: { roomId: roomId },
+      });
+      for (const peerId in this.latestAvailableProducers) {
+        this.disconnectFromPeer(peerId);
+      }
+      this.latestAvailableProducers = {};
+    }
+
+    // finally, join the new room
+    await this.socket.request("mediasoupSignaling", {
       type: "joinRoom",
-      data: { roomId: roomId },
+      data: { roomId },
     });
+    this.currentRoomId = roomId;
   }
 
   // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
@@ -119,6 +148,11 @@ export class SimpleMediasoupPeer {
         console.log(`Setting ${event} callback.`);
         this.onPeerCallback = callback;
         break;
+      }
+
+      case "disconnect": {
+        console.log(`Setting ${event} callback.`);
+        this.onDisconnectCallback = callback;
       }
 
       default: {
@@ -141,6 +175,14 @@ export class SimpleMediasoupPeer {
       return;
     }
     this.onPeerCallback(peerId);
+  }
+
+  callOnDisconnectCallback(peerId) {
+    if (!this.onPeerCallback) {
+      console.log("Please set a callback for disconnect event!");
+      return;
+    }
+    this.onDisconnectCallback(peerId);
   }
 
   async disconnect() {
@@ -355,15 +397,27 @@ export class SimpleMediasoupPeer {
     });
   }
 
+  // TODO use more modern and efficient approaches to this
   updatePeersFromSyncData(syncData) {
+    // check for new peers
     for (const peerId in syncData) {
       if (!this.latestAvailableProducers[peerId]) {
-        // new peer!  Call the on-peer callback
         if (peerId !== this.socket.id) {
           this.callOnPeerCallback(peerId);
         }
       }
     }
+
+    // check for disconnections
+    for (const peerId in this.latestAvailableProducers) {
+      if (!syncData[peerId]) {
+        if (peerId !== this.socket.id) {
+          this.callOnDisconnectCallback(peerId);
+        }
+      }
+    }
+
+    // finally update the latestavailableproducers and connections
     this.latestAvailableProducers = syncData;
     this.ensureConnectedToDesiredPeerConnections();
   }
@@ -422,12 +476,13 @@ export class SimpleMediasoupPeer {
   }
 
   disconnectFromPeer(otherPeerId) {
+    this.callOnDisconnectCallback(otherPeerId);
     for (let producerId in this.consumers[otherPeerId]) {
       const consumer = this.consumers[otherPeerId][producerId];
       consumer.close();
     }
     delete this.consumers[otherPeerId];
-    this.desiredPeerConnections.delete(id);
+    this.desiredPeerConnections.delete(otherPeerId);
   }
 
   async pausePeer(producingPeerId) {

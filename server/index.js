@@ -47,7 +47,7 @@ this.peers = {
 */
 
 class SimpleMediasoupPeerServer {
-  constructor() {
+  constructor(options = { port: 3000 }) {
     this.initializeMediasoupWorkersAndRouters();
 
     this.currentPeerRouterIndex = -1;
@@ -89,7 +89,7 @@ class SimpleMediasoupPeerServer {
       });
     });
 
-    this.io.listen(3000);
+    this.io.listen(options.port);
 
     setInterval(() => {
       this.sendSyncDataToAllRooms();
@@ -102,11 +102,15 @@ class SimpleMediasoupPeerServer {
     console.log("Sending sync data to all rooms:", allRooms);
     for (const roomId of allRooms) {
       const syncData = this.getSyncDataForRoom(roomId);
-      this.io.to(roomId).emit("mediasoupSignaling", {
-        type: "availableProducers",
-        data: syncData,
-      });
-      console.log("sending sync data to room", roomId, ":", syncData);
+      if (!syncData) {
+        this.rooms.delete(roomId);
+      } else {
+        this.io.to(roomId).emit("mediasoupSignaling", {
+          type: "availableProducers",
+          data: syncData,
+        });
+        console.log("sending sync data to room", roomId, ":", syncData);
+      }
     }
   }
 
@@ -126,7 +130,8 @@ class SimpleMediasoupPeerServer {
     // if the room no longer exists, return an empty object
     // TODO cleanup rooms as peers exit
     if (!peersInRoom) {
-      return {};
+      // room is empty!  let's get rid of it
+      return undefined;
     }
     for (const peerId of peersInRoom) {
       if (this.peers[peerId]) {
@@ -220,6 +225,13 @@ class SimpleMediasoupPeerServer {
         console.log("join room request");
         const socket = this.peers[id].socket;
         const roomId = request.data.roomId;
+
+        const existingRoomId = this.peers[id].room;
+        if (existingRoomId) {
+          // we only support one room at a time (for now)
+          socket.leave(existingRoomId);
+        }
+
         if (!this.rooms.has(roomId)) {
           // TODO clean up rooms after sockets have left
           this.rooms.add(roomId);
@@ -228,9 +240,6 @@ class SimpleMediasoupPeerServer {
         socket.join(roomId);
 
         this.peers[socket.id].room = roomId;
-
-        // tell existing peers about the new peer within this room
-        socket.to(roomId).emit("addPeer", [socket.id]);
 
         // tell new peer about the existing peers (and their available producers)
         const existingPeers = this.io.sockets.adapter.rooms.get(roomId);
@@ -241,6 +250,23 @@ class SimpleMediasoupPeerServer {
           type: "availableProducers",
           data: syncData,
         });
+
+        callback();
+        break;
+      }
+
+      case "leaveRoom": {
+        console.log("leave room request");
+        const socket = this.peers[id].socket;
+        const roomId = request.data.roomId;
+
+        const existingRoomId = this.peers[id].room;
+        if (existingRoomId === roomId) {
+          socket.leave(existingRoomId);
+          this.peerd[id].room = null;
+        }
+
+        callback();
         break;
       }
 
