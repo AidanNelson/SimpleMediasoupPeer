@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script
+      src="https://cdn.socket.io/4.4.1/socket.io.min.js"
+      integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
+      crossorigin="anonymous"
+    ></script>
+    <!-- <script
+      src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+      type="text/javascript"
+    ></script> -->
+    <script src="./SimpleMediasoupPeer.js" type="text/javascript"></script>
+    <style>
+      #peerContainer {
+        display: flex;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Input for choosing a room -->
+    <label for="roomIdInput">Enter Room Name:</label>
+    <input
+      type="text"
+      id="roomIdInput"
+      name="roomIdInput"
+      required
+      minlength="2"
+    />
+    <input id="joinRoomSubmit" type="button" value="Join" />
+
+    <hr />
+    <div id="peerContainer">
+      <div
+        style="border: 1px solid black; margin: 10px; padding: 10px"
+        id="local_container"
+      >
+        <video id="local_video"></video>
+        <video id="local_screen-video"></video>
+        <p>My local feed</p>
+        <button id="sendCamera">start camera</button>
+        <button id="stopCamera">stop camera</button>
+        <button id="screenshare">share screen</button>
+      </div>
+    </div>
+    <script src="index.js" type="module"></script>
+  </body>
+</html>

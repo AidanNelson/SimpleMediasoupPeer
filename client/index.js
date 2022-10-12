@@ -49,7 +49,7 @@ import * as mediasoupClient from "mediasoup-client";
 import { io } from "socket.io-client";
 
 export class SimpleMediasoupPeer {
-  constructor(room) {
+  constructor() {
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
@@ -71,8 +71,6 @@ export class SimpleMediasoupPeer {
       await this.disconnect();
       await this.initialize();
     });
-
-    this.socket.emit("joinRoom", { room: "my-cool-room" });
 
     // this.socket.on("clients", (ids) => {
     //   console.log("Got clients: ",ids)
@@ -96,6 +94,16 @@ export class SimpleMediasoupPeer {
 
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
+  }
+
+  joinRoom(roomId) {
+    if (!roomId) {
+      console.log("Please enter a room id to join");
+    }
+    this.socket.request("mediasoupSignaling", {
+      type: "joinRoom",
+      data: { roomId: roomId },
+    });
   }
 
   // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
