@@ -253,6 +253,10 @@ function main() {
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
+  mediasoupPeer.on("peer", (peerId) => {
+    console.log("got new peer!", peerId);
+    addPeer(peerId);
+  });
 }
 
 main();

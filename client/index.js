@@ -108,9 +108,22 @@ export class SimpleMediasoupPeer {
 
   // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
   on(event, callback) {
-    if (event == "track") {
-      console.log(`setting callback for ${event} callback`);
-      this.onTrackCallback = callback;
+    switch (event) {
+      case "track": {
+        console.log(`Setting ${event} callback.`);
+        this.onTrackCallback = callback;
+        break;
+      }
+
+      case "peer": {
+        console.log(`Setting ${event} callback.`);
+        this.onPeerCallback = callback;
+        break;
+      }
+
+      default: {
+        console.log(`Whoops!  No ${event} event exists.`);
+      }
     }
   }
 
@@ -120,6 +133,14 @@ export class SimpleMediasoupPeer {
     } else {
       console.log("no onTrack Callback Set");
     }
+  }
+
+  callOnPeerCallback(peerId) {
+    if (!this.onPeerCallback) {
+      console.log("Please set a callback for peer event!");
+      return;
+    }
+    this.onPeerCallback(peerId);
   }
 
   async disconnect() {
@@ -334,12 +355,24 @@ export class SimpleMediasoupPeer {
     });
   }
 
+  updatePeersFromSyncData(syncData) {
+    for (const peerId in syncData) {
+      if (!this.latestAvailableProducers[peerId]) {
+        // new peer!  Call the on-peer callback
+        if (peerId !== this.socket.id) {
+          this.callOnPeerCallback(peerId);
+        }
+      }
+    }
+    this.latestAvailableProducers = syncData;
+    this.ensureConnectedToDesiredPeerConnections();
+  }
+
   async handleSocketMessage(request) {
     switch (request.type) {
       case "availableProducers": {
         console.log("tick");
-        this.latestAvailableProducers = request.data;
-        this.ensureConnectedToDesiredPeerConnections();
+        this.updatePeersFromSyncData(request.data);
         break;
       }
 
