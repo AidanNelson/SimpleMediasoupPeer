@@ -83,7 +83,11 @@ export class SimpleMediasoupPeer {
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
 
-    this.publiclyExposedEvents = new Set(["peer", "disconnect", "track"]);
+    this.publiclyExposedEvents = new Set([
+      "peerConnection",
+      "peerDisconnection",
+      "track",
+    ]);
     this.userDefinedCallbacks = {};
 
     // add promisified socket request to make our lives easier
