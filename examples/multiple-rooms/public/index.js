@@ -253,12 +253,12 @@ function main() {
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.on("peer", (peerId) => {
+  mediasoupPeer.on("peerConnection", (peerId) => {
     console.log("Peer joined:", peerId);
     addPeer(peerId);
   });
 
-  mediasoupPeer.on("disconnect", (peerId) => {
+  mediasoupPeer.on("peerDisconnection", (peerId) => {
     console.log("Peer disconnected:", peerId);
     removePeer(peerId);
   });
