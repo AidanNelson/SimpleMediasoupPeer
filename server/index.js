@@ -157,10 +157,7 @@ class SimpleMediasoupPeerServer {
                 syncData[peerId] = {};
                 for (const producerId in this.peers[peerId].producers) {
                     let peerRouterIndex = this.peers[peerId].routerIndex;
-                    const producer =
-                        this.peers[peerId].producers[producerId][
-                            peerRouterIndex
-                        ];
+                    const producer = this.peers[peerId].producers[producerId][peerRouterIndex];
                     syncData[peerId][producerId] = producer.appData;
                 }
             }
@@ -196,9 +193,7 @@ class SimpleMediasoupPeerServer {
         if (this.currentPeerRouterIndex >= this.routers.length) {
             this.currentPeerRouterIndex = 0;
         }
-        console.log(
-            `Assigning peer to router # ${this.currentPeerRouterIndex}`
-        );
+        console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
         return this.currentPeerRouterIndex;
     }
 
@@ -231,9 +226,7 @@ class SimpleMediasoupPeerServer {
     }
 
     async startMediasoupWorker() {
-        let worker = await mediasoup.createWorker(
-            config.mediasoup.workerSettings
-        );
+        let worker = await mediasoup.createWorker(config.mediasoup.workerSettings);
         worker.on("died", () => {
             console.error("mediasoup worker died (this should never happen)");
             process.exit(1);
@@ -268,12 +261,7 @@ class SimpleMediasoupPeerServer {
 
                 // tell new peer about the existing peers (and their available producers)
                 const existingPeers = this.io.sockets.adapter.rooms.get(roomId);
-                console.log(
-                    "existing peers in room ",
-                    roomId,
-                    ": ",
-                    existingPeers
-                );
+                console.log("existing peers in room ", roomId, ": ", existingPeers);
 
                 const syncData = this.getSyncDataForRoom(roomId);
                 socket.emit("mediasoupSignaling", {
@@ -301,18 +289,13 @@ class SimpleMediasoupPeerServer {
             }
 
             case "getRouterRtpCapabilities": {
-                callback(
-                    this.routers[this.peers[id].routerIndex].rtpCapabilities
-                );
+                callback(this.routers[this.peers[id].routerIndex].rtpCapabilities);
                 break;
             }
 
             case "createWebRtcTransport": {
                 console.log("Creating WebRTC transport!");
-                const callbackData = await this.createTransportForPeer(
-                    id,
-                    request.data
-                );
+                const callbackData = await this.createTransportForPeer(id, request.data);
                 callback(callbackData);
                 break;
             }
@@ -322,10 +305,7 @@ class SimpleMediasoupPeerServer {
                 const { transportId, dtlsParameters } = request.data;
                 const transport = this.peers[id].transports[transportId];
 
-                if (!transport)
-                    throw new Error(
-                        `transport with id "${transportId}" not found`
-                    );
+                if (!transport) throw new Error(`transport with id "${transportId}" not found`);
 
                 await transport.connect({ dtlsParameters });
 
@@ -466,13 +446,8 @@ class SimpleMediasoupPeerServer {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-    async getOrCreateConsumerForPeer(
-        consumingPeerId,
-        producingPeerId,
-        producerId
-    ) {
-        let existingConsumer =
-            this.peers[consumingPeerId].consumers[producerId];
+    async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+        let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
         if (existingConsumer) {
             console.log("Already consuming!");
@@ -487,20 +462,16 @@ class SimpleMediasoupPeerServer {
             .push(async () => {
                 // first check whether the producer or one of its pipe producers exists
                 // on the consuming peer's router:
-                let consumingPeerRouterIndex =
-                    this.peers[consumingPeerId].routerIndex;
+                let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
                 // console.log(this.peers[producingPeerId].producers);
                 let producerOrPipeProducer =
-                    this.peers[producingPeerId].producers[producerId][
-                        consumingPeerRouterIndex
-                    ];
+                    this.peers[producingPeerId].producers[producerId][consumingPeerRouterIndex];
 
                 console.log("Current producer: ", !!producerOrPipeProducer);
 
                 if (!producerOrPipeProducer) {
                     // if it doesn't exist, create a new pipe producer
-                    let producingRouterIndex =
-                        this.peers[producingPeerId].routerIndex;
+                    let producingRouterIndex = this.peers[producingPeerId].routerIndex;
                     console.log(
                         `Creating pipe producer ID ${producerId} from router ${producingRouterIndex} to peer ${consumingPeerId} in router ${consumingPeerRouterIndex}!`
                     );
@@ -551,16 +522,13 @@ class SimpleMediasoupPeerServer {
             let transport = this.getRecvTransportForPeer(consumingPeerId);
 
             if (!transport) {
-                console.warn(
-                    `No receive transport found for peer with ID ${consumingPeerId}`
-                );
+                console.warn(`No receive transport found for peer with ID ${consumingPeerId}`);
                 return null;
             }
             consumer = await transport.consume({
                 producerId: producer.id,
                 rtpCapabilities:
-                    this.routers[this.peers[consumingPeerId].routerIndex]
-                        .rtpCapabilities,
+                    this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
                 paused: true,
                 appData: producer.appData,
             });
@@ -615,13 +583,9 @@ class SimpleMediasoupPeerServer {
         let { appData } = data;
         appData = { ...appData, peerId: producingPeerId };
 
-        const transport = this.getTransportForPeer(
-            producingPeerId,
-            transportId
-        );
+        const transport = this.getTransportForPeer(producingPeerId, transportId);
 
-        if (!transport)
-            throw new Error(`transport with id "${transportId}" not found`);
+        if (!transport) throw new Error(`transport with id "${transportId}" not found`);
 
         const producer = await transport.produce({
             kind,
@@ -665,13 +629,10 @@ class SimpleMediasoupPeerServer {
                         producerPaused: consumer.producerPaused,
                     };
 
-                    this.peers[consumingPeerId].socket.emit(
-                        "mediasoupSignaling",
-                        {
-                            type: "createConsumer",
-                            data: consumerInfo,
-                        }
-                    );
+                    this.peers[consumingPeerId].socket.emit("mediasoupSignaling", {
+                        type: "createConsumer",
+                        data: consumerInfo,
+                    });
                 }
             }
         }
@@ -688,15 +649,12 @@ class SimpleMediasoupPeerServer {
         };
 
         try {
-            const transport = await this.getRouterForPeer(
-                id
-            ).createWebRtcTransport(webRtcTransportOptions);
+            const transport = await this.getRouterForPeer(id).createWebRtcTransport(
+                webRtcTransportOptions
+            );
 
             transport.on("sctpstatechange", (sctpState) => {
-                console.log(
-                    'WebRtcTransport "sctpstatechange" event [sctpState:%s]',
-                    sctpState
-                );
+                console.log('WebRtcTransport "sctpstatechange" event [sctpState:%s]', sctpState);
             });
 
             transport.on("dtlsstatechange", (dtlsState) => {

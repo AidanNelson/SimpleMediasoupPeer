@@ -758,7 +758,7 @@ class SimpleMediasoupPeer {
         });
     }
     async createConsumer(consumerInfo) {
-        const { peerId , producerId , id , kind , rtpParameters , type , appData , producerPaused ,  } = consumerInfo;
+        const { peerId , producerId , id , kind , rtpParameters , type , appData , producerPaused  } = consumerInfo;
         if (!this.consumers[peerId]) this.consumers[peerId] = {};
         let consumer = this.consumers[peerId][producerId];
         if (!consumer) {
@@ -832,7 +832,7 @@ class SimpleMediasoupPeer {
     async removePeer(otherPeerId) {
         for(let producerId in this.consumers[otherPeerId]){
             let consumer = this.consumers[otherPeerId][producerId];
-            consumer.close();
+            this.closeConsumer(consumer);
         }
         delete this.consumers[otherPeerId];
     }
@@ -1044,14 +1044,20 @@ class SimpleMediasoupPeer {
     constructor(options = {}){
         const defaultOptions = {
             autoConnect: true,
-            server: "localhost:3000",
-            roomId: null
+            roomId: null,
+            // socket options
+            socket: null,
+            url: window.location.origin,
+            socketClientOptions: {
+                path: "/socket.io/"
+            }
         };
         this.options = Object.assign(defaultOptions, options);
         console.log("Setting up new MediasoupPeer with the following options:", this.options);
         this.device = null;
         this.currentRoomId = null;
-        this.socket = (0, _socketIoClient.io)(this.options.server);
+        if (this.options.socket) this.socket = this.options.socket;
+        else this.socket = (0, _socketIoClient.io)(this.options.url, this.options.socketClientOptions);
         this.producers = {};
         this.consumers = {};
         this.sendTransport = null;
@@ -1062,7 +1068,7 @@ class SimpleMediasoupPeer {
         this.publiclyExposedEvents = new Set([
             "peerConnection",
             "peerDisconnection",
-            "track", 
+            "track"
         ]);
         this.userDefinedCallbacks = {};
         // add promisified socket request to make our lives easier
@@ -1095,7 +1101,7 @@ class SimpleMediasoupPeer {
 }
 window.SimpleMediasoupPeer = SimpleMediasoupPeer;
 
-},{"mediasoup-client":"1Q21H","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU","socket.io-client":"fR5lm"}],"1Q21H":[function(require,module,exports) {
+},{"mediasoup-client":"1Q21H","socket.io-client":"fR5lm","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"1Q21H":[function(require,module,exports) {
 "use strict";
 var __createBinding = this && this.__createBinding || (Object.create ? function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -13355,36 +13361,6 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-},{}],"5oERU":[function(require,module,exports) {
-exports.interopDefault = function(a) {
-    return a && a.__esModule ? a : {
-        default: a
-    };
-};
-exports.defineInteropFlag = function(a) {
-    Object.defineProperty(a, "__esModule", {
-        value: true
-    });
-};
-exports.exportAll = function(source, dest) {
-    Object.keys(source).forEach(function(key) {
-        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
-        Object.defineProperty(dest, key, {
-            enumerable: true,
-            get: function() {
-                return source[key];
-            }
-        });
-    });
-    return dest;
-};
-exports.export = function(dest, destName, get) {
-    Object.defineProperty(dest, destName, {
-        enumerable: true,
-        get: get
-    });
-};
-
 },{}],"fR5lm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
@@ -14535,7 +14511,37 @@ const ERROR_PACKET = {
     data: "parser error"
 };
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"k2mYo":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"5oERU":[function(require,module,exports) {
+exports.interopDefault = function(a) {
+    return a && a.__esModule ? a : {
+        default: a
+    };
+};
+exports.defineInteropFlag = function(a) {
+    Object.defineProperty(a, "__esModule", {
+        value: true
+    });
+};
+exports.exportAll = function(source, dest) {
+    Object.keys(source).forEach(function(key) {
+        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
+        Object.defineProperty(dest, key, {
+            enumerable: true,
+            get: function() {
+                return source[key];
+            }
+        });
+    });
+    return dest;
+};
+exports.export = function(dest, destName, get) {
+    Object.defineProperty(dest, destName, {
+        enumerable: true,
+        get: get
+    });
+};
+
+},{}],"k2mYo":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _commonsJs = require("./commons.js");
