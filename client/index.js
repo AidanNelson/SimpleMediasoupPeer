@@ -60,7 +60,8 @@ export class SimpleMediasoupPeer {
             roomId: null,
             // socket options
             socket: null,
-            url: window.location.origin,
+            url: window.location.hostname,
+            port: 3000,
             socketClientOptions: {
                 path: "/socket.io/",
             },
@@ -79,7 +80,7 @@ export class SimpleMediasoupPeer {
             this.socket = this.options.socket;
         } else {
             this.socket = io(
-                this.options.url,
+                `${this.options.url}:${this.options.port}`,
                 this.options.socketClientOptions
             );
         }

@@ -1,52 +1,69 @@
-// let socket;
-let clients = {};
 let mediasoupPeer;
 let localStream;
 let localScreenshareStream;
 
 let userMediaConstraints = {
-    audio: false,
+    audio: true,
     video: {
-        width: 320,
-        height: 240,
+        width: 640,
+        height: 480,
     },
 };
 
 let screenMediaConstraints = {
     video: {
-        width: 320,
-        height: 240,
+        width: 1920,
+        height: 1080,
     },
     audio: false,
 };
 
-// function setupSocketConnection() {
-// socket = io("localhost:3000");
-// socket = io();
+window.onload = () => {
+    console.log("~~~~~~~~~~~~~~~~~");
+    // setupSocketConnection();
 
-// socket.on("connect", () => {
-//   console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
-// });
+    // Two options for setting up the SMP client
+    // 1. have SMP manage the socket internally
+    mediasoupPeer = new SimpleMediasoupPeer();
+    // 2. provide a socket for SMP
+    // const socket = io("localhost:3000");
+    // mediasoupPeer = new SimpleMediasoupPeer({
+    //     autoConnect: true,
+    //     socket,
+    // });
 
-// socket.on("clients", (ids) => {
-//   console.log("Got initial clients!");
-//   for (let i = 0; i < ids.length; i++) {
-//     addPeer(ids[i]);
-//   }
-// });
+    mediasoupPeer.joinRoom("myCoolRoom123");
 
-// socket.on("clientConnected", (id) => {
-//   addPeer(id);
-// });
+    document.getElementById("sendCamera").addEventListener(
+        "click",
+        () => {
+            sendCamera();
+        },
+        false
+    );
+    document.getElementById("stopCamera").addEventListener(
+        "click",
+        () => {
+            stopCamera();
+        },
+        false
+    );
 
-// socket.on("clientDisconnected", (id) => {
-//   removePeer(id);
-// });
-// }
+    document.getElementById("screenshare").addEventListener(
+        "click",
+        () => {
+            startScreenshare();
+        },
+        false
+    );
+
+    mediasoupPeer.on("peerConnection", addPeer);
+    mediasoupPeer.on("peerDisconnection", removePeer);
+    mediasoupPeer.on("track", gotTrack);
+};
 
 function addPeer({ peerId }) {
     console.log("Client conencted: ", peerId);
-    clients[peerId] = {};
     addPeerElements(peerId);
 }
 
@@ -54,7 +71,6 @@ function removePeer({ peerId }) {
     console.log("Client disconencted:", peerId);
     const peerEl = document.getElementById(peerId + "_container");
     if (peerEl) peerEl.remove();
-    delete clients[peerId];
 }
 
 // create a <div> for each peer
@@ -81,6 +97,7 @@ function addPeerElements(id) {
     audioEl.id = id + "_audio";
     audioEl.setAttribute("playsinline", true);
     audioEl.setAttribute("autoplay", true);
+    audioEl.setAttribute("controls", true);
     peerEl.appendChild(audioEl);
 
     const headerEl = document.createElement("div");
@@ -127,23 +144,6 @@ function addPeerElements(id) {
     peerEl.appendChild(headerEl);
     document.getElementById("peerContainer").appendChild(peerEl);
 }
-
-// async function startBroadcast() {
-//   if (!localStream) {
-//     await startCamera();
-//   }
-
-//   const videoTrack = localStream.getVideoTracks()[0];
-//   const audioTrack = localStream.getAudioTracks()[0];
-
-//   if (videoTrack) {
-//     mediasoupPeer.addTrack(videoTrack, "video-broadcast", true);
-//   }
-
-//   if (audioTrack) {
-//     mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true);
-//   }
-// }
 
 async function sendCamera() {
     if (!localStream) {
@@ -243,7 +243,6 @@ function updateHTMLElementsFromTrack(track, id, label) {
         console.log("Updating <audio> source object for client with ID: " + id);
         el.srcObject = null;
         el.srcObject = new MediaStream([track]);
-        el.volume = 0; // avoid feedback during local development
 
         el.onloadedmetadata = (e) => {
             el.play().catch((e) => {
@@ -259,41 +258,3 @@ function gotTrack({ track, peerId, label }) {
     );
     updateHTMLElementsFromTrack(track, peerId, label);
 }
-
-function main() {
-    console.log("~~~~~~~~~~~~~~~~~");
-    // setupSocketConnection();
-
-    mediasoupPeer = new SimpleMediasoupPeer({
-        roomId: "myCoolRoom123",
-        autoConnect: true,
-    });
-    document.getElementById("sendCamera").addEventListener(
-        "click",
-        () => {
-            sendCamera();
-        },
-        false
-    );
-    document.getElementById("stopCamera").addEventListener(
-        "click",
-        () => {
-            stopCamera();
-        },
-        false
-    );
-
-    document.getElementById("screenshare").addEventListener(
-        "click",
-        () => {
-            startScreenshare();
-        },
-        false
-    );
-
-    mediasoupPeer.on("peerConnection", addPeer);
-    // mediasoupPeer.on("peerDisconnection", removePeer);
-    mediasoupPeer.on("track", gotTrack);
-}
-
-main();

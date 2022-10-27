@@ -1052,7 +1052,8 @@ class SimpleMediasoupPeer {
             roomId: null,
             // socket options
             socket: null,
-            url: window.location.origin,
+            url: window.location.hostname,
+            port: 3000,
             socketClientOptions: {
                 path: "/socket.io/"
             }
@@ -1062,7 +1063,7 @@ class SimpleMediasoupPeer {
         this.device = null;
         this.currentRoomId = null;
         if (this.options.socket) this.socket = this.options.socket;
-        else this.socket = (0, _socketIoClient.io)(this.options.url, this.options.socketClientOptions);
+        else this.socket = (0, _socketIoClient.io)(`${this.options.url}:${this.options.port}`, this.options.socketClientOptions);
         this.producers = {};
         this.consumers = {};
         this.sendTransport = null;
