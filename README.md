@@ -26,8 +26,8 @@ Add the client-side library to your code using a script tag:
 
 ```js
 <script
-    src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
-    type="text/javascript"
+  src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+  type="text/javascript"
 ></script>
 ```
 
@@ -42,9 +42,9 @@ Once installed, initialize a new SimpleMediasoupPeer.
 ```js
 // available options for initializing a new peer
 const options = {
-    autoConnect: false, // should the peer automatically connect to available tracks
-    server: "http://localhost:3000",
-    roomId: "MyCoolRoomName123",
+  autoConnect: false, // should the peer automatically connect to available tracks
+  server: "http://localhost:3000",
+  roomId: "MyCoolRoomName123",
 };
 const peer = new SimpleMediasoupPeer(options);
 ```
@@ -56,17 +56,17 @@ This peer has the following methods available:
 ```js
 // deal with incoming tracks
 peer.on("track", ({ peerId, track, info }) => {
-    // do something with this new track
+  // do something with this new track
 });
 
 // deal with new peers in the room
 peer.on("peer", ({ peerId }) => {
-    // do something with this new track
+  // do something with this new track
 });
 
 // deal with peers disconnecting
 peer.on("disconnect", ({ peerId }) => {
-    // do something with this new track
+  // do something with this new track
 });
 
 // join a room!
@@ -92,7 +92,7 @@ Note that this library does not deal with getUserMedia requests, keeping track o
 
 ## Examples
 
--   [Simple Video Chat](./examples/simple-video-chat/)
+- [Simple Video Chat](./examples/simple-video-chat/)
 
 ### How many peers can I support?
 
@@ -135,40 +135,40 @@ Finally, in your index.html code, you will need to load the client-side library 
 
 ### Improvements
 
--   [ ] -   Update to logging library
--   [ ] -   Optionally set custom update frequency on server?
--   [ ] -   Override update frequency if there is a broadcast?
--   [ ] -   Allow metadata instead of label?
--   [ ] -   Allow for auto-connect flag on client-side?
--   [ ] -   Add method to disconnect from peer and cleanup any consumers
--   [ ] -   Support data producer / consumer
--   [ ] -   Support multiple rooms?
--   [ ] -   Add cleanup method for tracks after broadcaster disconnects.
+- [ ] - Update to logging library
+- [ ] - Optionally set custom update frequency on server?
+- [ ] - Override update frequency if there is a broadcast?
+- [ ] - Allow metadata instead of label?
+- [ ] - Allow for auto-connect flag on client-side?
+- [ ] - Add method to disconnect from peer and cleanup any consumers
+- [ ] - Support data producer / consumer
+- [ ] - Support multiple rooms?
+- [ ] - Add cleanup method for tracks after broadcaster disconnects.
 
 ### Bugs and Testing
 
--   [ ] -   What is proper behavior for change in socket ID?
--   [ ] -   if someone has previously added then paused a peer, then they remove and add a track, will the paused state be respected?
--   [ ] -   ensure tranports have successfully connected on client side before attempting to produce.
--   [ ] -   add a way to close a producer completely
+- [ ] - What is proper behavior for change in socket ID?
+- [ ] - if someone has previously added then paused a peer, then they remove and add a track, will the paused state be respected?
+- [ ] - ensure tranports have successfully connected on client side before attempting to produce.
+- [ ] - add a way to close a producer completely
 
 ### Done
 
--   [x] -   socket glitches and reassigning IDs
--   [x] -   make it work with multiple routers
--   [x] -   optionally add encodings for addTrack function? for screenshare quality
--   [x] -   pass in IP rather than using .env?
--   [x] -   better alternative to ontrack?
--   [x] -   Add ability to switch track
--   [x] -   ensure load balancing across workers?
--   [x] -   ensure maximum number of workers created
--   [x] -   UnhandledPromiseRejectionWarning: TypeError: a Producer with same id "9d89745e-af87-4372-80e8-e9f6282c15ee" already exists
--   [x] -   UnhandledPromiseRejectionWarning: Error: a Producer with same producerId already exists
--   [x] -   separate examples from library code
--   [x] -   pre-build library?
--   [x] -   when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
+- [x] - socket glitches and reassigning IDs
+- [x] - make it work with multiple routers
+- [x] - optionally add encodings for addTrack function? for screenshare quality
+- [x] - pass in IP rather than using .env?
+- [x] - better alternative to ontrack?
+- [x] - Add ability to switch track
+- [x] - ensure load balancing across workers?
+- [x] - ensure maximum number of workers created
+- [x] - UnhandledPromiseRejectionWarning: TypeError: a Producer with same id "9d89745e-af87-4372-80e8-e9f6282c15ee" already exists
+- [x] - UnhandledPromiseRejectionWarning: Error: a Producer with same producerId already exists
+- [x] - separate examples from library code
+- [x] - pre-build library?
+- [x] - when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
 
 ## Examples
 
--   [x] -   simple example
--   [x] -   broadcast example
+- [x] - simple example
+- [x] - broadcast example

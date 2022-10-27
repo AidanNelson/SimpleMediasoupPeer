@@ -2,8 +2,8 @@
 
 This example uses Simple Mediasoup Peer to set up two separete pages: one for a broadcaster and one for an audience.
 
--   The audience page is available at https://localhost:5000
--   The broadcaster page is available at https://localhost:5000/broadcaster.html
+- The audience page is available at https://localhost:5000
+- The broadcaster page is available at https://localhost:5000/broadcaster.html
 
 ### Getting Started
 
@@ -20,9 +20,9 @@ You can set custom encodings for video and audio tracks as an optional fourth pa
 
 ```js
 let customVideoEncodings = [
-    { scaleResolutionDownBy: 4, maxBitrate: 500000 },
-    { scaleResolutionDownBy: 2, maxBitrate: 1000000 },
-    { scaleResolutionDownBy: 1, maxBitrate: 5000000 },
+  { scaleResolutionDownBy: 4, maxBitrate: 500000 },
+  { scaleResolutionDownBy: 2, maxBitrate: 1000000 },
+  { scaleResolutionDownBy: 1, maxBitrate: 5000000 },
 ];
 let customAudioEncodings = [{ maxBitrate: 256000 }];
 

@@ -6,7 +6,7 @@ The api consists of the following methods:
 
 ```js
 socket = io("localhost:5000", {
-    path: "/socket.io",
+  path: "/socket.io",
 });
 const peer = new SimpleMediasoupPeer(socket);
 
@@ -18,9 +18,9 @@ peer.connectToPeer(otherPeerID);
 
 // what to do when a track arrives
 peer.onTrack = (incomingTrack, peerId, info) => {
-    // do something with this new track
-    // info will contain the label assigned by the addTrack
-    // method: {label: "webcam", peerId: "e8219dsjwek123a", broadcast: false}
+  // do something with this new track
+  // info will contain the label assigned by the addTrack
+  // method: {label: "webcam", peerId: "e8219dsjwek123a", broadcast: false}
 };
 
 peer.resumePeer(otherPeerID);

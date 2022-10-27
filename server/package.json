@@ -1,28 +1,28 @@
 {
-    "name": "simple-mediasoup-peer-server",
-    "version": "0.0.1",
-    "description": "Server code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
-    "contributors": [
-        "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
-    },
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "nodemon index.js"
-    },
-    "author": "",
-    "license": "ISC",
-    "dependencies": {
-        "awaitqueue": "^2.3.3",
-        "ip": "^1.1.8",
-        "mediasoup": "^3.6.28",
-        "socket.io": "^4.5.2"
-    },
-    "devDependencies": {
-        "nodemon": "^2.0.20"
-    }
+  "name": "simple-mediasoup-peer-server",
+  "version": "0.0.1",
+  "description": "Server code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
+  "contributors": [
+    "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "awaitqueue": "^2.3.3",
+    "ip": "^1.1.8",
+    "mediasoup": "^3.6.28",
+    "socket.io": "^4.5.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
 }

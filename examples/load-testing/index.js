@@ -12,11 +12,11 @@ const app = express();
 const server = http.createServer(app);
 
 io.listen(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true,
-    },
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
 // serve the client-side files
@@ -32,34 +32,30 @@ console.log(`Server listening on http://localhost:${port}`);
 let clients = {};
 
 function setupSocketServer() {
-    io.on("connection", (socket) => {
-        console.log(
-            "User " +
-                socket.id +
-                " connected, there are " +
-                io.engine.clientsCount +
-                " clients connected"
-        );
+  io.on("connection", (socket) => {
+    console.log(
+      "User " + socket.id + " connected, there are " + io.engine.clientsCount + " clients connected"
+    );
 
-        socket.emit("clients", Object.keys(clients));
-        socket.broadcast.emit("clientConnected", socket.id);
+    socket.emit("clients", Object.keys(clients));
+    socket.broadcast.emit("clientConnected", socket.id);
 
-        // then add to our clients object
-        clients[socket.id] = {}; // store initial client state here
+    // then add to our clients object
+    clients[socket.id] = {}; // store initial client state here
 
-        socket.on("disconnect", () => {
-            delete clients[socket.id];
-            io.sockets.emit("clientDisconnected", socket.id);
-            console.log("client disconnected: ", socket.id);
-        });
+    socket.on("disconnect", () => {
+      delete clients[socket.id];
+      io.sockets.emit("clientDisconnected", socket.id);
+      console.log("client disconnected: ", socket.id);
     });
+  });
 }
 
 function main() {
-    // the mediasoup manager object will set up additional event
-    // handlers on the socket-io object
-    new SimpleMediasoupPeerServer(io);
-    setupSocketServer();
+  // the mediasoup manager object will set up additional event
+  // handlers on the socket-io object
+  new SimpleMediasoupPeerServer(io);
+  setupSocketServer();
 }
 
 main();
