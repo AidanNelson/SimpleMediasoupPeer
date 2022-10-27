@@ -57,8 +57,10 @@ export class SimpleMediasoupPeer {
   constructor(options = {}) {
     const defaultOptions = {
       autoConnect: true,
-      server: "localhost:3000",
       roomId: null,
+      // socket options
+      socket: null,
+      server: "localhost:3000",
     };
     this.options = Object.assign(defaultOptions, options);
 
@@ -70,8 +72,11 @@ export class SimpleMediasoupPeer {
     this.device = null;
     this.currentRoomId = null;
 
-    this.socket = io(this.options.server);
-
+    if (this.options.socket) {
+      this.socket = this.options.socket;
+    } else {
+      this.socket = io(this.options.server);
+    }
     this.producers = {};
     this.consumers = {};
 
