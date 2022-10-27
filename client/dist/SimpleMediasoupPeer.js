@@ -604,7 +604,12 @@ class SimpleMediasoupPeer {
                     roomId: roomId
                 }
             });
-            for(const peerId in this.latestAvailableProducers)this.disconnectFromPeer(peerId);
+            for(const peerId in this.latestAvailableProducers){
+                this.disconnectFromPeer(peerId);
+                this.callEventCallback("peerDisconnection", {
+                    peerId
+                });
+            }
             this.latestAvailableProducers = {};
         }
         // finally, join the new room
@@ -794,13 +799,17 @@ class SimpleMediasoupPeer {
         // check for new peers
         for(const peerId in syncData){
             if (!this.latestAvailableProducers[peerId]) {
-                if (peerId !== this.socket.id) this.callEventCallback("peer", peerId);
+                if (peerId !== this.socket.id) this.callEventCallback("peerConnection", {
+                    peerId
+                });
             }
         }
         // check for disconnections
         for(const peerId1 in this.latestAvailableProducers){
             if (!syncData[peerId1]) {
-                if (peerId1 !== this.socket.id) this.callEventCallback("disconnect", peerId1);
+                if (peerId1 !== this.socket.id) this.callEventCallback("peerDisconnection", {
+                    peerId: peerId1
+                });
             }
         }
         // finally update the latestavailableproducers and connections
@@ -829,7 +838,7 @@ class SimpleMediasoupPeer {
     async removePeer(otherPeerId) {
         for(let producerId in this.consumers[otherPeerId]){
             let consumer = this.consumers[otherPeerId][producerId];
-            consumer.close();
+            this.closeConsumer(consumer);
         }
         delete this.consumers[otherPeerId];
     }
@@ -868,7 +877,6 @@ class SimpleMediasoupPeer {
     /*
   disconnect from a given peer
   */ disconnectFromPeer(otherPeerId) {
-        this.callEventCallback("disconnect", otherPeerId);
         for(let producerId in this.consumers[otherPeerId]){
             const consumer = this.consumers[otherPeerId][producerId];
             this.closeConsumer(consumer);
@@ -944,7 +952,7 @@ class SimpleMediasoupPeer {
                 sctpCapabilities: this.device.sctpCapabilities
             }
         });
-        const { id: id1 , iceParameters , iceCandidates , dtlsParameters: dtlsParameters1 , sctpParameters  } = sendTransportInfo;
+        const { id: id1 , iceParameters , iceCandidates , dtlsParameters: dtlsParameters1 , sctpParameters ,  } = sendTransportInfo;
         this.sendTransport = this.device.createSendTransport({
             id: id1,
             iceParameters,
@@ -1016,7 +1024,7 @@ class SimpleMediasoupPeer {
                 sctpCapabilities: this.device.sctpCapabilities
             }
         });
-        const { id , iceParameters , iceCandidates , dtlsParameters: dtlsParameters2 , sctpParameters  } = recvTransportInfo;
+        const { id , iceParameters , iceCandidates , dtlsParameters: dtlsParameters2 , sctpParameters ,  } = recvTransportInfo;
         this.recvTransport = this.device.createRecvTransport({
             id,
             iceParameters,
@@ -1041,14 +1049,21 @@ class SimpleMediasoupPeer {
     constructor(options = {}){
         const defaultOptions = {
             autoConnect: true,
-            server: "localhost:3000",
-            roomId: null
+            roomId: null,
+            // socket options
+            socket: null,
+            url: window.location.hostname,
+            port: 3000,
+            socketClientOptions: {
+                path: "/socket.io/"
+            }
         };
         this.options = Object.assign(defaultOptions, options);
         console.log("Setting up new MediasoupPeer with the following options:", this.options);
         this.device = null;
         this.currentRoomId = null;
-        this.socket = (0, _socketIoClient.io)(this.options.server);
+        if (this.options.socket) this.socket = this.options.socket;
+        else this.socket = (0, _socketIoClient.io)(`${this.options.url}:${this.options.port}`, this.options.socketClientOptions);
         this.producers = {};
         this.consumers = {};
         this.sendTransport = null;
@@ -1057,9 +1072,9 @@ class SimpleMediasoupPeer {
         this.latestAvailableProducers = {};
         this.desiredPeerConnections = new Set();
         this.publiclyExposedEvents = new Set([
-            "peer",
-            "disconnect",
-            "track"
+            "peerConnection",
+            "peerDisconnection",
+            "track", 
         ]);
         this.userDefinedCallbacks = {};
         // add promisified socket request to make our lives easier
@@ -1092,7 +1107,7 @@ class SimpleMediasoupPeer {
 }
 window.SimpleMediasoupPeer = SimpleMediasoupPeer;
 
-},{"mediasoup-client":"1Q21H","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU","socket.io-client":"fR5lm"}],"1Q21H":[function(require,module,exports) {
+},{"mediasoup-client":"1Q21H","socket.io-client":"fR5lm","@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"1Q21H":[function(require,module,exports) {
 "use strict";
 var __createBinding = this && this.__createBinding || (Object.create ? function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -13352,36 +13367,6 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-},{}],"5oERU":[function(require,module,exports) {
-exports.interopDefault = function(a) {
-    return a && a.__esModule ? a : {
-        default: a
-    };
-};
-exports.defineInteropFlag = function(a) {
-    Object.defineProperty(a, "__esModule", {
-        value: true
-    });
-};
-exports.exportAll = function(source, dest) {
-    Object.keys(source).forEach(function(key) {
-        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
-        Object.defineProperty(dest, key, {
-            enumerable: true,
-            get: function() {
-                return source[key];
-            }
-        });
-    });
-    return dest;
-};
-exports.export = function(dest, destName, get) {
-    Object.defineProperty(dest, destName, {
-        enumerable: true,
-        get: get
-    });
-};
-
 },{}],"fR5lm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
@@ -14532,7 +14517,37 @@ const ERROR_PACKET = {
     data: "parser error"
 };
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"k2mYo":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"5oERU"}],"5oERU":[function(require,module,exports) {
+exports.interopDefault = function(a) {
+    return a && a.__esModule ? a : {
+        default: a
+    };
+};
+exports.defineInteropFlag = function(a) {
+    Object.defineProperty(a, "__esModule", {
+        value: true
+    });
+};
+exports.exportAll = function(source, dest) {
+    Object.keys(source).forEach(function(key) {
+        if (key === "default" || key === "__esModule" || dest.hasOwnProperty(key)) return;
+        Object.defineProperty(dest, key, {
+            enumerable: true,
+            get: function() {
+                return source[key];
+            }
+        });
+    });
+    return dest;
+};
+exports.export = function(dest, destName, get) {
+    Object.defineProperty(dest, destName, {
+        enumerable: true,
+        get: get
+    });
+};
+
+},{}],"k2mYo":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _commonsJs = require("./commons.js");

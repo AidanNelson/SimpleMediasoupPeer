@@ -11,10 +11,7 @@
       src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
       type="text/javascript"
     ></script> -->
-    <script
-      src="http://localhost:8080/SimpleMediasoupPeer.js"
-      type="text/javascript"
-    ></script>
+    <script src="http://localhost:8080/SimpleMediasoupPeer.js" type="text/javascript"></script>
     <style>
       #peerContainer {
         display: flex;
@@ -25,21 +22,12 @@
   <body>
     <!-- Input for choosing a room -->
     <label for="roomIdInput">Enter Room Name:</label>
-    <input
-      type="text"
-      id="roomIdInput"
-      name="roomIdInput"
-      required
-      minlength="2"
-    />
+    <input type="text" id="roomIdInput" name="roomIdInput" required minlength="2" />
     <input id="joinRoomSubmit" type="button" value="Join" />
 
     <hr />
     <div id="peerContainer">
-      <div
-        style="border: 1px solid black; margin: 10px; padding: 10px"
-        id="local_container"
-      >
+      <div style="border: 1px solid black; margin: 10px; padding: 10px" id="local_container">
         <video id="local_video"></video>
         <video id="local_screen-video"></video>
         <p>My local feed</p>

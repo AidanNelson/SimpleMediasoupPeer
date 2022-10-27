@@ -124,9 +124,7 @@ async function startCamera() {
   if (localStream) return;
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia(
-      userMediaConstraints
-    );
+    localStream = await navigator.mediaDevices.getUserMedia(userMediaConstraints);
 
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -169,9 +167,7 @@ async function startScreenshare() {
 async function getLocalScreenShareMedia() {
   try {
     // get a screen share track
-    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(
-      screenMediaConstraints
-    );
+    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(screenMediaConstraints);
 
     const videoTrack = localScreenshareStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -210,9 +206,7 @@ function updateHTMLElementsFromTrack(track, id, label) {
 }
 
 function gotTrack({ track, peerId, label }) {
-  console.log(
-    `Got track with label ${label} from ${peerId}.   Kind: ${track.kind}`
-  );
+  console.log(`Got track with label ${label} from ${peerId}.   Kind: ${track.kind}`);
   updateHTMLElementsFromTrack(track, peerId, label);
 }
 
@@ -253,12 +247,12 @@ function main() {
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.on("peer", (peerId) => {
+  mediasoupPeer.on("peerConnection", (peerId) => {
     console.log("Peer joined:", peerId);
     addPeer(peerId);
   });
 
-  mediasoupPeer.on("disconnect", (peerId) => {
+  mediasoupPeer.on("peerDisconnection", (peerId) => {
     console.log("Peer disconnected:", peerId);
     removePeer(peerId);
   });

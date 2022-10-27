@@ -51,7 +51,22 @@ const { Server } = require("socket.io");
 const config = require("./config");
 
 class SimpleMediasoupPeerServer {
-  constructor(options = { port: 3000 }) {
+  constructor(options = {}) {
+    const defaultOptions = {
+      io: null,
+      socketServerOpts: {
+        path: "/socket.io/",
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"],
+          credentials: true,
+        },
+        serveClient: false,
+      },
+      port: 3000,
+    };
+    this.options = Object.assign(defaultOptions, options);
+
     this.initializeMediasoupWorkersAndRouters();
 
     this.currentPeerRouterIndex = -1;
@@ -65,14 +80,13 @@ class SimpleMediasoupPeerServer {
     // created rooms
     this.rooms = new Set();
 
-    this.io = new Server({
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true,
-      },
-    });
-
+    if (this.options.io) {
+      this.io = this.options.io;
+    } else {
+      this.io = new Server(this.options.socketServerOpts);
+      this.io.listen(this.options.port);
+      console.log("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
+    }
     this.io.on("connection", (socket) => {
       console.log("Socket joined:", socket.id);
       this.addPeer(socket);
@@ -92,8 +106,6 @@ class SimpleMediasoupPeerServer {
         this.handleSocketRequest(socket.id, data, callback);
       });
     });
-
-    this.io.listen(options.port);
 
     setInterval(() => {
       this.sendSyncDataToAllRooms();
@@ -142,8 +154,7 @@ class SimpleMediasoupPeerServer {
         syncData[peerId] = {};
         for (const producerId in this.peers[peerId].producers) {
           let peerRouterIndex = this.peers[peerId].routerIndex;
-          const producer =
-            this.peers[peerId].producers[producerId][peerRouterIndex];
+          const producer = this.peers[peerId].producers[producerId][peerRouterIndex];
           syncData[peerId][producerId] = producer.appData;
         }
       }
@@ -281,10 +292,7 @@ class SimpleMediasoupPeerServer {
 
       case "createWebRtcTransport": {
         console.log("Creating WebRTC transport!");
-        const callbackData = await this.createTransportForPeer(
-          id,
-          request.data
-        );
+        const callbackData = await this.createTransportForPeer(id, request.data);
         callback(callbackData);
         break;
       }
@@ -294,8 +302,7 @@ class SimpleMediasoupPeerServer {
         const { transportId, dtlsParameters } = request.data;
         const transport = this.peers[id].transports[transportId];
 
-        if (!transport)
-          throw new Error(`transport with id "${transportId}" not found`);
+        if (!transport) throw new Error(`transport with id "${transportId}" not found`);
 
         await transport.connect({ dtlsParameters });
 
@@ -436,11 +443,7 @@ class SimpleMediasoupPeerServer {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(
-    consumingPeerId,
-    producingPeerId,
-    producerId
-  ) {
+  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -459,9 +462,7 @@ class SimpleMediasoupPeerServer {
         let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
         // console.log(this.peers[producingPeerId].producers);
         let producerOrPipeProducer =
-          this.peers[producingPeerId].producers[producerId][
-            consumingPeerRouterIndex
-          ];
+          this.peers[producingPeerId].producers[producerId][consumingPeerRouterIndex];
 
         console.log("Current producer: ", !!producerOrPipeProducer);
 
@@ -477,17 +478,14 @@ class SimpleMediasoupPeerServer {
           // ] = "creating";
 
           try {
-            const { pipeProducer } = await this.routers[
-              producingRouterIndex
-            ].pipeToRouter({
+            const { pipeProducer } = await this.routers[producingRouterIndex].pipeToRouter({
               producerId: producerId,
               router: this.routers[consumingPeerRouterIndex],
             });
 
             // add the pipe producer to the producing peer's object of producers:
-            this.peers[producingPeerId].producers[producerId][
-              consumingPeerRouterIndex
-            ] = pipeProducer;
+            this.peers[producingPeerId].producers[producerId][consumingPeerRouterIndex] =
+              pipeProducer;
 
             producerOrPipeProducer = pipeProducer;
           } catch (err) {
@@ -495,10 +493,7 @@ class SimpleMediasoupPeerServer {
           }
         }
 
-        let newConsumer = await this.createConsumer(
-          consumingPeerId,
-          producerOrPipeProducer
-        );
+        let newConsumer = await this.createConsumer(consumingPeerId, producerOrPipeProducer);
 
         if (!newConsumer) return null;
 
@@ -518,15 +513,12 @@ class SimpleMediasoupPeerServer {
       let transport = this.getRecvTransportForPeer(consumingPeerId);
 
       if (!transport) {
-        console.warn(
-          `No receive transport found for peer with ID ${consumingPeerId}`
-        );
+        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`);
         return null;
       }
       consumer = await transport.consume({
         producerId: producer.id,
-        rtpCapabilities:
-          this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
+        rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
         paused: true,
         appData: producer.appData,
       });
@@ -583,8 +575,7 @@ class SimpleMediasoupPeerServer {
 
     const transport = this.getTransportForPeer(producingPeerId, transportId);
 
-    if (!transport)
-      throw new Error(`transport with id "${transportId}" not found`);
+    if (!transport) throw new Error(`transport with id "${transportId}" not found`);
 
     const producer = await transport.produce({
       kind,
@@ -595,9 +586,8 @@ class SimpleMediasoupPeerServer {
 
     // add producer to the peer object
     this.peers[producingPeerId].producers[producer.id] = {};
-    this.peers[producingPeerId].producers[producer.id][
-      this.peers[producingPeerId].routerIndex
-    ] = producer;
+    this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
+      producer;
 
     if (appData.broadcast) {
       this.broadcastProducer(producingPeerId, producer.id);
@@ -653,18 +643,12 @@ class SimpleMediasoupPeerServer {
       );
 
       transport.on("sctpstatechange", (sctpState) => {
-        console.log(
-          'WebRtcTransport "sctpstatechange" event [sctpState:%s]',
-          sctpState
-        );
+        console.log('WebRtcTransport "sctpstatechange" event [sctpState:%s]', sctpState);
       });
 
       transport.on("dtlsstatechange", (dtlsState) => {
         if (dtlsState === "failed" || dtlsState === "closed")
-          console.log(
-            'WebRtcTransport "dtlsstatechange" event [dtlsState:%s]',
-            dtlsState
-          );
+          console.log('WebRtcTransport "dtlsstatechange" event [dtlsState:%s]', dtlsState);
       });
 
       this.peers[id].transports[transport.id] = transport;
