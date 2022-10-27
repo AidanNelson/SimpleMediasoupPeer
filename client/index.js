@@ -144,6 +144,7 @@ export class SimpleMediasoupPeer {
       });
       for (const peerId in this.latestAvailableProducers) {
         this.disconnectFromPeer(peerId);
+        this.callEventCallback("peerDisconnection", peerId);
       }
       this.latestAvailableProducers = {};
     }
@@ -393,7 +394,7 @@ export class SimpleMediasoupPeer {
     for (const peerId in syncData) {
       if (!this.latestAvailableProducers[peerId]) {
         if (peerId !== this.socket.id) {
-          this.callEventCallback("peer", peerId);
+          this.callEventCallback("peerConnection", peerId);
         }
       }
     }
@@ -402,7 +403,7 @@ export class SimpleMediasoupPeer {
     for (const peerId in this.latestAvailableProducers) {
       if (!syncData[peerId]) {
         if (peerId !== this.socket.id) {
-          this.callEventCallback("disconnect", peerId);
+          this.callEventCallback("peerDisconnection", peerId);
         }
       }
     }

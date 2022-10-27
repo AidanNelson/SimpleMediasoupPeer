@@ -604,7 +604,10 @@ class SimpleMediasoupPeer {
                     roomId: roomId
                 }
             });
-            for(const peerId in this.latestAvailableProducers)this.disconnectFromPeer(peerId);
+            for(const peerId in this.latestAvailableProducers){
+                this.disconnectFromPeer(peerId);
+                this.callEventCallback("peerDisconnection", peerId);
+            }
             this.latestAvailableProducers = {};
         }
         // finally, join the new room
@@ -794,13 +797,13 @@ class SimpleMediasoupPeer {
         // check for new peers
         for(const peerId in syncData){
             if (!this.latestAvailableProducers[peerId]) {
-                if (peerId !== this.socket.id) this.callEventCallback("peer", peerId);
+                if (peerId !== this.socket.id) this.callEventCallback("peerConnection", peerId);
             }
         }
         // check for disconnections
         for(const peerId1 in this.latestAvailableProducers){
             if (!syncData[peerId1]) {
-                if (peerId1 !== this.socket.id) this.callEventCallback("disconnect", peerId1);
+                if (peerId1 !== this.socket.id) this.callEventCallback("peerDisconnection", peerId1);
             }
         }
         // finally update the latestavailableproducers and connections
@@ -1057,9 +1060,9 @@ class SimpleMediasoupPeer {
         this.latestAvailableProducers = {};
         this.desiredPeerConnections = new Set();
         this.publiclyExposedEvents = new Set([
-            "peer",
-            "disconnect",
-            "track"
+            "peerConnection",
+            "peerDisconnection",
+            "track", 
         ]);
         this.userDefinedCallbacks = {};
         // add promisified socket request to make our lives easier
