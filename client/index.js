@@ -443,7 +443,7 @@ export class SimpleMediasoupPeer {
   async removePeer(otherPeerId) {
     for (let producerId in this.consumers[otherPeerId]) {
       let consumer = this.consumers[otherPeerId][producerId];
-      consumer.close();
+      this.closeConsumer(consumer);
     }
     delete this.consumers[otherPeerId];
   }
