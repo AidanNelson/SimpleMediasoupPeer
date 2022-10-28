@@ -48,11 +48,13 @@ this.desiredPeerConnections = new Set();
 import * as mediasoupClient from "mediasoup-client";
 
 export class SimpleMediasoupPeer {
-  constructor(socket) {
+  constructor(socket, iceServers = []) {
     console.log("Setting up new MediasoupPeer");
 
     this.device = null;
     this.socket = socket;
+    this.iceServers = iceServers;
+    console.log("Using the following ice servers: ", this.iceServers);
 
     // add promisified socket request to make our lives easier
     this.socket.request = (type, data = {}) => {
@@ -457,7 +459,7 @@ export class SimpleMediasoupPeer {
       iceCandidates,
       dtlsParameters,
       sctpParameters,
-      iceServers: [],
+      iceServers: this.iceServers,
     });
 
     this.sendTransport.on(
@@ -554,7 +556,7 @@ export class SimpleMediasoupPeer {
       iceCandidates,
       dtlsParameters,
       sctpParameters,
-      iceServers: [],
+      iceServers: this.iceServers,
     });
 
     this.recvTransport.on(
