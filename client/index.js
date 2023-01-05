@@ -44,12 +44,17 @@ this.consumers = {
 this.desiredPeerConnections = new Set();
 
 */
+const debug = require("debug");
+const log = debug("simple-mediasoup-peer-client:log");
+log.log = console.log.bind(console);
+
+const logError = debug("simple-mediasoup-peer-client:error");
 
 import * as mediasoupClient from "mediasoup-client";
 
 export class SimpleMediasoupPeer {
   constructor(socket) {
-    console.log("Setting up new MediasoupPeer");
+    log("Setting up new MediasoupPeer");
 
     this.device = null;
     this.socket = socket;
@@ -66,7 +71,7 @@ export class SimpleMediasoupPeer {
     });
 
     this.socket.on("connect", async () => {
-      console.log("Connected to Socket Server with ID: ", this.socket.id);
+      log("Connected to Socket Server with ID: ", this.socket.id);
       await this.disconnect();
       await this.initialize();
     });
@@ -86,7 +91,7 @@ export class SimpleMediasoupPeer {
   // borrowed from https://github.com/vanevery/p5LiveMedia/ -- thanks!
   on(event, callback) {
     if (event == "track") {
-      console.log(`setting callback for ${event} callback`);
+      log(`setting callback for ${event} callback`);
       this.onTrackCallback = callback;
     }
   }
@@ -95,12 +100,12 @@ export class SimpleMediasoupPeer {
     if (this.onTrackCallback) {
       this.onTrackCallback(track, peerId, label);
     } else {
-      console.log("no onTrack Callback Set");
+      log("no onTrack Callback Set");
     }
   }
 
   async disconnect() {
-    console.log("Clearing SimpleMediasoupPeer!");
+    log("Clearing SimpleMediasoupPeer!");
 
     if (this.sendTransport) {
       this.sendTransport.close();
@@ -119,7 +124,7 @@ export class SimpleMediasoupPeer {
   }
 
   async initialize() {
-    console.log("Initializing SimpleMediasoupPeer!");
+    log("Initializing SimpleMediasoupPeer!");
     this.setupMediasoupDevice();
     await this.connectToMediasoupRouter();
     await this.createSendTransport();
@@ -139,7 +144,7 @@ export class SimpleMediasoupPeer {
       broadcast,
       customEncodings,
     };
-    console.log(this.tracksToProduce);
+    log(this.tracksToProduce);
     await this.addProducer(track, label, broadcast, customEncodings);
   }
 
@@ -147,7 +152,7 @@ export class SimpleMediasoupPeer {
     let producer;
 
     if (this.producers[label]) {
-      console.warn(`Already producing ${label}! Swapping track!`);
+      log(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });
       return;
     }
@@ -159,7 +164,7 @@ export class SimpleMediasoupPeer {
 
       if (customEncodings) {
         encodings = customEncodings;
-        console.log("Using custom encodings:", encodings);
+        log("Using custom encodings:", encodings);
       }
 
       producer = await this.sendTransport.produce({
@@ -195,12 +200,12 @@ export class SimpleMediasoupPeer {
     }
 
     producer.on("transportclose", () => {
-      console.log("transport closed");
+      log("transport closed");
       producer = null;
     });
 
     producer.on("trackended", async () => {
-      console.log("track ended");
+      log("track ended");
       try {
         await this.socket.request("mediasoupSignaling", {
           type: "closeProducer",
@@ -209,7 +214,7 @@ export class SimpleMediasoupPeer {
           },
         });
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
 
       await producer.close();
@@ -221,9 +226,9 @@ export class SimpleMediasoupPeer {
   }
 
   ensureConnectedToDesiredPeerConnections() {
-    console.log("ensure connections");
-    console.log("latest available producers:", this.latestAvailableProducers);
-    console.log("desired connections:", this.desiredPeerConnections);
+    log("ensure connections");
+    log("latest available producers:", this.latestAvailableProducers);
+    log("desired connections:", this.desiredPeerConnections);
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
       for (const producerId in this.latestAvailableProducers[peerId]) {
@@ -233,7 +238,7 @@ export class SimpleMediasoupPeer {
         if (shouldConsume) {
           const consumer =
             this.consumers[peerId] && this.consumers[peerId][producerId];
-          console.log("existing consumer:", consumer);
+          log("existing consumer:", consumer);
           if (!consumer) {
             this.requestConsumer(peerId, producerId);
           }
@@ -275,9 +280,7 @@ export class SimpleMediasoupPeer {
     let consumer = this.consumers[peerId][producerId];
 
     if (!consumer) {
-      console.log(
-        `Creating consumer with ID ${id} for producer with ID ${producerId}`
-      );
+      log(`Creating consumer with ID ${id} for producer with ID ${producerId}`);
 
       consumer = await this.recvTransport.consume({
         id,
@@ -287,7 +290,7 @@ export class SimpleMediasoupPeer {
         appData: { ...appData, peerId },
       });
 
-      console.log("Created consumer:", consumer);
+      log("Created consumer:", consumer);
 
       this.consumers[peerId][producerId] = consumer;
 
@@ -314,7 +317,7 @@ export class SimpleMediasoupPeer {
   async handleSocketMessage(request) {
     switch (request.type) {
       case "availableProducers": {
-        console.log("tick");
+        log("tick");
         this.latestAvailableProducers = request.data;
         this.ensureConnectedToDesiredPeerConnections();
         break;
@@ -326,10 +329,8 @@ export class SimpleMediasoupPeer {
       }
 
       case "consumerClosed": {
-        console.log(
-          "Server-side consumerClosed, closing client side consumer."
-        );
-        console.log(request.data);
+        log("Server-side consumerClosed, closing client side consumer.");
+        log(request.data);
         const { producingPeerId, producerId } = request.data;
 
         this.consumers[producingPeerId][producerId].close();
@@ -358,7 +359,7 @@ export class SimpleMediasoupPeer {
     for (const producerId in this.latestAvailableProducers[peerId]) {
       const existingConsumer =
         this.consumers[peerId] && this.consumers[peerId][producerId];
-      console.log("existingConsumer:", existingConsumer);
+      log("existingConsumer:", existingConsumer);
       if (!existingConsumer) {
         this.requestConsumer(peerId, producerId);
       }
@@ -383,7 +384,7 @@ export class SimpleMediasoupPeer {
       // by default do not let us pause a broadcasts
       if (!consumer || consumer.appData.broadcast) continue;
       if (!consumer.paused) {
-        console.log("Pausing consumer!");
+        log("Pausing consumer!");
 
         await this.socket.request("mediasoupSignaling", {
           type: "pauseConsumer",
@@ -404,7 +405,7 @@ export class SimpleMediasoupPeer {
 
       if (!consumer) continue;
       if (consumer.paused) {
-        console.log("Resuming consumer!");
+        log("Resuming consumer!");
         await this.socket.request("mediasoupSignaling", {
           type: "resumeConsumer",
           data: {
@@ -424,7 +425,7 @@ export class SimpleMediasoupPeer {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
-      console.error(err);
+      logError(err);
     }
   }
 
@@ -434,7 +435,7 @@ export class SimpleMediasoupPeer {
       { type: "getRouterRtpCapabilities" }
     );
     await this.device.load({ routerRtpCapabilities });
-    console.log("Router loaded!");
+    log("Router loaded!");
   }
 
   async createSendTransport() {
@@ -467,7 +468,7 @@ export class SimpleMediasoupPeer {
         callback,
         errback // eslint-disable-line no-shadow
       ) => {
-        console.log("Connecting Send Transport");
+        log("Connecting Send Transport");
         this.socket
           .request("mediasoupSignaling", {
             type: "connectWebRtcTransport",
@@ -485,7 +486,7 @@ export class SimpleMediasoupPeer {
       "produce",
       async ({ kind, rtpParameters, appData }, callback, errback) => {
         try {
-          console.log("starting to produce");
+          log("starting to produce");
           // eslint-disable-next-line no-shadow
           const { id } = await this.socket.request("mediasoupSignaling", {
             type: "produce",
@@ -531,7 +532,7 @@ export class SimpleMediasoupPeer {
       }
     );
 
-    console.log("Created send transport!");
+    log("Created send transport!");
   }
 
   async createRecvTransport() {
@@ -564,7 +565,7 @@ export class SimpleMediasoupPeer {
         callback,
         errback // eslint-disable-line no-shadow
       ) => {
-        console.log("Connecting Receive Transport!");
+        log("Connecting Receive Transport!");
         this.socket
           .request("mediasoupSignaling", {
             type: "connectWebRtcTransport",
@@ -578,7 +579,7 @@ export class SimpleMediasoupPeer {
       }
     );
 
-    console.log("Created receive transport!");
+    log("Created receive transport!");
   }
 }
 
