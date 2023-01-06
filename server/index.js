@@ -1,11 +1,10 @@
 const os = require("os");
-const mediasoup = require("mediasoup");
+const mediasoup = require("@show-runner/mediasoup");
 const { AwaitQueue } = require("awaitqueue");
 
-var ip = require('ip');
+var ip = require("ip");
 const LOCAL_IP_ADDRESS = ip.address();
-console.log("Local IP Address: ",LOCAL_IP_ADDRESS);
-
+console.log("Local IP Address: ", LOCAL_IP_ADDRESS);
 
 const config = {
   mediasoup: {
@@ -203,8 +202,7 @@ class SimpleMediasoupPeerServer {
   getNewPeerRouterIndex() {
     this.currentPeerRouterIndex = this.currentPeerRouterIndex + 1;
 
-
-    if (this.currentPeerRouterIndex >= this.routers.length){
+    if (this.currentPeerRouterIndex >= this.routers.length) {
       this.currentPeerRouterIndex = 0;
     }
     console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
@@ -416,7 +414,11 @@ class SimpleMediasoupPeerServer {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+  async getOrCreateConsumerForPeer(
+    consumingPeerId,
+    producingPeerId,
+    producerId
+  ) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -426,7 +428,7 @@ class SimpleMediasoupPeerServer {
 
     console.log("Creating new consumer!");
 
-    // use our queue to avoid multiple peers requesting the same pipeProducer 
+    // use our queue to avoid multiple peers requesting the same pipeProducer
     // at the same time
     this.queue
       .push(async () => {
@@ -475,7 +477,7 @@ class SimpleMediasoupPeerServer {
           consumingPeerId,
           producerOrPipeProducer
         );
-        
+
         if (!newConsumer) return null;
 
         // add new consumer to the consuming peer's consumers object:
@@ -494,7 +496,9 @@ class SimpleMediasoupPeerServer {
       let transport = this.getRecvTransportForPeer(consumingPeerId);
 
       if (!transport) {
-        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`)
+        console.warn(
+          `No receive transport found for peer with ID ${consumingPeerId}`
+        );
         return null;
       }
       consumer = await transport.consume({

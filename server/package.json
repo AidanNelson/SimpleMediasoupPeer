@@ -16,7 +16,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@show-runner/mediasoup": "^3.11.4-1",
     "awaitqueue": "^2.3.3",
-    "mediasoup": "^3.11.4"
+    "ip": "^1.1.8"
   }
 }
