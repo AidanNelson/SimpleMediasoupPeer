@@ -2,10 +2,9 @@ const os = require("os");
 const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
 
-var ip = require('ip');
+var ip = require("ip");
 const LOCAL_IP_ADDRESS = ip.address();
-console.log("Local IP Address: ",LOCAL_IP_ADDRESS);
-
+console.log("Local IP Address: ", LOCAL_IP_ADDRESS);
 
 const config = {
   mediasoup: {
@@ -66,17 +65,6 @@ const config = {
           parameters: {
             "packetization-mode": 1,
             "profile-level-id": "4d0032",
-            "level-asymmetry-allowed": 1,
-            "x-google-start-bitrate": 1000,
-          },
-        },
-        {
-          kind: "video",
-          mimeType: "video/h264",
-          clockRate: 90000,
-          parameters: {
-            "packetization-mode": 1,
-            "profile-level-id": "42e01f",
             "level-asymmetry-allowed": 1,
             "x-google-start-bitrate": 1000,
           },
@@ -203,8 +191,7 @@ class SimpleMediasoupPeerServer {
   getNewPeerRouterIndex() {
     this.currentPeerRouterIndex = this.currentPeerRouterIndex + 1;
 
-
-    if (this.currentPeerRouterIndex >= this.routers.length){
+    if (this.currentPeerRouterIndex >= this.routers.length) {
       this.currentPeerRouterIndex = 0;
     }
     console.log(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
@@ -416,7 +403,11 @@ class SimpleMediasoupPeerServer {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+  async getOrCreateConsumerForPeer(
+    consumingPeerId,
+    producingPeerId,
+    producerId
+  ) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -426,7 +417,7 @@ class SimpleMediasoupPeerServer {
 
     console.log("Creating new consumer!");
 
-    // use our queue to avoid multiple peers requesting the same pipeProducer 
+    // use our queue to avoid multiple peers requesting the same pipeProducer
     // at the same time
     this.queue
       .push(async () => {
@@ -475,7 +466,7 @@ class SimpleMediasoupPeerServer {
           consumingPeerId,
           producerOrPipeProducer
         );
-        
+
         if (!newConsumer) return null;
 
         // add new consumer to the consuming peer's consumers object:
@@ -494,7 +485,9 @@ class SimpleMediasoupPeerServer {
       let transport = this.getRecvTransportForPeer(consumingPeerId);
 
       if (!transport) {
-        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`)
+        console.warn(
+          `No receive transport found for peer with ID ${consumingPeerId}`
+        );
         return null;
       }
       consumer = await transport.consume({
@@ -609,6 +602,104 @@ class SimpleMediasoupPeerServer {
         }
       }
     }
+  }
+
+  // adds a broadcaster on the server side and spits out the parameters
+  // can be used for RTMP / SRT ingestions on server side
+  async addServerSideBroadcaster() {
+    const producingPeerId = "serverSideBroadcaster";
+
+    this.peers["serverSideBroadcaster"] = {
+      routerIndex: this.getNewPeerRouterIndex(),
+      transports: {},
+      producers: {},
+      consumers: {},
+    };
+    console.log(this.peers);
+    console.log("routers:", this.routers);
+    const r = this.getRouterForPeer("serverSideBroadcaster");
+    console.log(r);
+    const transport = await r.createPlainTransport({
+      // listenIp: config.mediasoup.plainTransportOptions.listenIp.ip,
+      listenIp: "127.0.0.1",
+      rtcpMux: false,
+      comedia: true,
+    });
+    console.log("Plain Transport Tuple: ", transport.tuple);
+    console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
+
+    const appData = {
+      label: "serverSideVideoProducer",
+      broadcast: true,
+      peerId: producingPeerId,
+    };
+
+    const producer = await transport.produce({
+      kind: "video",
+      rtpParameters: {
+        mid: "VIDEO",
+        codecs: [
+          {
+            mimeType: "video/h264",
+            payloadType: 112,
+            clockRate: 90000,
+            parameters: {
+              "packetization-mode": 1,
+              "profile-level-id": "4d0032",
+            },
+            rtcpFeedback: [
+              { type: "nack" },
+              { type: "nack", parameter: "pli" },
+              { type: "goog-remb" },
+            ],
+          },
+          {
+            mimeType: "video/rtx",
+            payloadType: 113,
+            clockRate: 90000,
+            parameters: { apt: 112 },
+          },
+        ],
+        headerExtensions: [
+          {
+            uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
+            id: 10,
+          },
+          {
+            uri: "urn:3gpp:video-orientation",
+            id: 13,
+          },
+        ],
+        encodings: [
+          { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
+          { ssrc: 22222224, rtx: { ssrc: 22222225 } },
+          { ssrc: 22222226, rtx: { ssrc: 22222227 } },
+          { ssrc: 22222228, rtx: { ssrc: 22222229 } },
+        ],
+        rtcp: {
+          cname: "video-1",
+        },
+      },
+      appData: {
+        label: "serverSideVideoProducer",
+        broadcast: true,
+        peerId: producingPeerId,
+      },
+    });
+    // console.log();
+
+    // add producer to the peer object
+    this.peers[producingPeerId].producers[producer.id] = {};
+    this.peers[producingPeerId].producers[producer.id][
+      this.peers[producingPeerId].routerIndex
+    ] = producer;
+
+    this.broadcastProducer(producingPeerId, producer.id);
+
+    return {
+      tuple: transport.tuple,
+      rtcpTuple: transport.rtcpTuple,
+    };
   }
 
   async createTransportForPeer(id, data) {
