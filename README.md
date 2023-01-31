@@ -24,23 +24,31 @@ You're done. 🙃 By default, this server will create a Mediasoup worker and rou
 ### Client-Side Setup
 
 Add the client-side library to your code using a script tag:
+
 ```js
-<script src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js" type="text/javascript"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+  type="text/javascript"
+></script>
 ```
 
 Or, if you're using a bundler, install it directly from npm:
+
 ```bash
 npm install simple-mediasoup-peer-client
 ```
-Once installed, initialize a new SimpleMediasoupPeer and pass in your socket.io Socket object.  
+
+Once installed, initialize a new SimpleMediasoupPeer and pass in your socket.io Socket object.
 
 ```js
 const socket = io();
 const peer = new SimpleMediasoupPeer(socket);
 ```
+
 This peer will automatically connect to the signaling server you previously set up.
 
 This peer has the following methods available:
+
 ```js
 // add a MediaStream track to your peer object
 peer.addTrack(videoTrack, "webcam");
@@ -53,7 +61,7 @@ peer.addTrack(videoTrack, "webcam", true);
 
 // deal with incoming tracks
 peer.on("track", (incomingTrack, peerId, label) => {
-    // do something with this new track    
+  // do something with this new track
 });
 
 // resume all conected tracks from a given peer
@@ -67,7 +75,7 @@ Note that this library does not deal with getUserMedia requests, keeping track o
 
 ## Examples
 
-* [Simple Video Chat](./examples/simple-video-chat/)
+- [Simple Video Chat](./examples/simple-video-chat/)
 
 ### How many peers can I support?
 
@@ -111,6 +119,6 @@ That depends on how they are several things: total number of connections, the se
 - [x] - when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
 
 ## Examples
+
 - [x] - simple example
 - [x] - broadcast example
-

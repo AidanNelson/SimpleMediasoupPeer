@@ -23,23 +23,23 @@ function gotTrack(track, id, label) {
   let el;
 
   if (track.kind === "video") {
-      console.log("Creating video element for client with ID: " + id);
-      el = document.createElement("video");
-      el.id = id + "_video";
-      el.autoplay = true;
-      el.muted = true;
-      el.setAttribute("playsinline", true);
-      document.body.appendChild(el);
+    console.log("Creating video element for client with ID: " + id);
+    el = document.createElement("video");
+    el.id = id + "_video";
+    el.autoplay = true;
+    el.muted = true;
+    el.setAttribute("playsinline", true);
+    document.body.appendChild(el);
   }
 
   if (track.kind === "audio") {
-      console.log("Creating audio element for client with ID: " + id);
-      el = document.createElement("audio");
-      el.id = id + "_" + label;
-      document.body.appendChild(el);
-      el.setAttribute("playsinline", true);
-      el.setAttribute("autoplay", true);
-      el.volume = 0; // this is here to avoid feedback while testing
+    console.log("Creating audio element for client with ID: " + id);
+    el = document.createElement("audio");
+    el.id = id + "_" + label;
+    document.body.appendChild(el);
+    el.setAttribute("playsinline", true);
+    el.setAttribute("autoplay", true);
+    el.volume = 0; // this is here to avoid feedback while testing
   }
 
   el.srcObject = null;

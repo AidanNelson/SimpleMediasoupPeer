@@ -236,8 +236,7 @@ export class SimpleMediasoupPeer {
           this.desiredPeerConnections.has(peerId) ||
           this.latestAvailableProducers[peerId][producerId].broadcast;
         if (shouldConsume) {
-          const consumer =
-            this.consumers[peerId] && this.consumers[peerId][producerId];
+          const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
           log("existing consumer:", consumer);
           if (!consumer) {
             this.requestConsumer(peerId, producerId);
@@ -262,16 +261,8 @@ export class SimpleMediasoupPeer {
   }
 
   async createConsumer(consumerInfo) {
-    const {
-      peerId,
-      producerId,
-      id,
-      kind,
-      rtpParameters,
-      type,
-      appData,
-      producerPaused,
-    } = consumerInfo;
+    const { peerId, producerId, id, kind, rtpParameters, type, appData, producerPaused } =
+      consumerInfo;
 
     if (!this.consumers[peerId]) {
       this.consumers[peerId] = {};
@@ -357,8 +348,7 @@ export class SimpleMediasoupPeer {
     this.desiredPeerConnections.add(peerId);
 
     for (const producerId in this.latestAvailableProducers[peerId]) {
-      const existingConsumer =
-        this.consumers[peerId] && this.consumers[peerId][producerId];
+      const existingConsumer = this.consumers[peerId] && this.consumers[peerId][producerId];
       log("existingConsumer:", existingConsumer);
       if (!existingConsumer) {
         this.requestConsumer(peerId, producerId);
@@ -430,10 +420,9 @@ export class SimpleMediasoupPeer {
   }
 
   async connectToMediasoupRouter() {
-    const routerRtpCapabilities = await this.socket.request(
-      "mediasoupSignaling",
-      { type: "getRouterRtpCapabilities" }
-    );
+    const routerRtpCapabilities = await this.socket.request("mediasoupSignaling", {
+      type: "getRouterRtpCapabilities",
+    });
     await this.device.load({ routerRtpCapabilities });
     log("Router loaded!");
   }
@@ -449,8 +438,7 @@ export class SimpleMediasoupPeer {
       },
     });
 
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
-      sendTransportInfo;
+    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = sendTransportInfo;
 
     this.sendTransport = this.device.createSendTransport({
       id,
@@ -507,11 +495,7 @@ export class SimpleMediasoupPeer {
 
     this.sendTransport.on(
       "producedata",
-      async (
-        { sctpStreamParameters, label, protocol, appData },
-        callback,
-        errback
-      ) => {
+      async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
         try {
           // eslint-disable-next-line no-shadow
           const { id } = await this.socket.request("mediasoupSignaling", {
@@ -546,8 +530,7 @@ export class SimpleMediasoupPeer {
       },
     });
 
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
-      recvTransportInfo;
+    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = recvTransportInfo;
 
     this.recvTransport = this.device.createRecvTransport({
       id,

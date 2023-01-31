@@ -12,7 +12,6 @@ let userMediaConstraints = {
   },
 };
 
-
 function setupSocketConnection() {
   socket = io("localhost:5000", {
     path: "/socket.io",
@@ -61,7 +60,6 @@ function addPeerElements(id) {
   const titleEl = document.createElement("p");
   titleEl.innerText = "Client " + id + " - ";
   headerEl.appendChild(titleEl);
-
 
   peerEl.appendChild(headerEl);
   document.getElementById("peerContainer").appendChild(peerEl);
@@ -183,7 +181,7 @@ function createHTMLElementsFromTrack(track, id, label) {
 function gotTrack(track, id, label) {
   console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
   createHTMLElementsFromTrack(track, id, label);
-};
+}
 
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
@@ -196,7 +194,7 @@ function main() {
     for (let id in clients) {
       connectToPeer(id);
     }
-  },5000);
+  }, 5000);
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);

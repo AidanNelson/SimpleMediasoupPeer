@@ -1,31 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script
+      src="https://cdn.socket.io/4.4.1/socket.io.min.js"
+      integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+      type="text/javascript"
+    ></script>
+    <style>
+      #peerContainer {
+        display: flex;
+        flex-wrap: wrap;
+        /* align-items: center; */
+        /* justify-content: space-around; */
+      }
+    </style>
+  </head>
 
-<head>
-  <meta charset="utf-8" />
-  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"
-    integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
-    crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
-    type="text/javascript"></script>
-  <style>
-    #peerContainer {
-      display: flex;
-      flex-wrap: wrap;
-      /* align-items: center; */
-      /* justify-content: space-around; */
-    }
-  </style>
-</head>
-
-<body>
-  
-  <div id="peerContainer">
-    <div style="border: 1px solid black; margin: 10px; padding: 10px;" id="local_container">
-      <p>Local Streams:</p>
+  <body>
+    <div id="peerContainer">
+      <div style="border: 1px solid black; margin: 10px; padding: 10px" id="local_container">
+        <p>Local Streams:</p>
+      </div>
     </div>
-  </div>
-  <script src="index.js" type="module"></script>
-</body>
-
+    <script src="index.js" type="module"></script>
+  </body>
 </html>
