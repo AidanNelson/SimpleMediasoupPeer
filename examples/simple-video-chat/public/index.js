@@ -78,7 +78,6 @@ function addPeerElements(id) {
   videoEl.setAttribute("playsinline", true);
   peerEl.appendChild(videoEl);
 
-
   let audioEl = document.createElement("audio");
   audioEl.id = id + "_audio";
   audioEl.setAttribute("playsinline", true);
@@ -168,9 +167,7 @@ async function startCamera() {
   if (localStream) return;
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia(
-      userMediaConstraints
-    );
+    localStream = await navigator.mediaDevices.getUserMedia(userMediaConstraints);
 
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -213,9 +210,7 @@ async function startScreenshare() {
 async function getLocalScreenShareMedia() {
   try {
     // get a screen share track
-    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(
-      screenMediaConstraints
-    );
+    localScreenshareStream = await navigator.mediaDevices.getDisplayMedia(screenMediaConstraints);
 
     const videoTrack = localScreenshareStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -254,9 +249,7 @@ function updateHTMLElementsFromTrack(track, id, label) {
 }
 
 function gotTrack(track, id, label) {
-  console.log(
-    `Got track with label ${label} from ${id}.   Kind: ${track.kind}`
-  );
+  console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
   updateHTMLElementsFromTrack(track, id, label);
 }
 
@@ -279,7 +272,7 @@ function main() {
     },
     false
   );
- 
+
   document.getElementById("screenshare").addEventListener(
     "click",
     () => {
