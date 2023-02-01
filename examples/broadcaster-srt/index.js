@@ -73,7 +73,7 @@ function main() {
 
   setTimeout(async () => {
     const transportInfo = await mediasoupManager.addServerSideBroadcaster();
-    console.log(transportInfo);
+    // console.log(transportInfo);
     startFFMPEGSRTServer(
       transportInfo.tuple.localPort,
       transportInfo.rtcpTuple.localPort
@@ -83,172 +83,192 @@ function main() {
 
 main();
 
+function getLatency(rttMillis) {
+  return rttMillis * 4;
+}
+// https://github.com/Haivision/srt/issues/703
+function calc_rcv_buf_bytes(rtt_ms, bps, latency_ms) {
+  return ((latency_ms + rtt_ms / 2) * bps) / 1000 / 8;
+}
+
 function startFFMPEGSRTServer(
   plainTransportPort,
   plainTransportRTCPPort,
-  srtPort
+  srtPort,
+  rttMillis
 ) {
-  // spawn an ffmpeg process
-  const child = childProcess.spawn("ffmpeg", [
-    "-re",
-    "-v",
-    "info",
-    "-stream_loop",
-    "-1",
-    "-i",
-    "srt://127.0.0.1:9191?mode=listener&transtype=live&latency=3000000&ffs=128000&rcvbuf=100058624",
-
-    // generic libav soptions:
-    "-cpu-used",
-    "8",
-
-    "-map",
-    "0:v:0",
-
-    "-pix_fmt",
-    "yuv420p",
-
-    // for no re-encoding (only works if source is encoded correctly)
-    "-c:v",
-    "copy",
-
-    // for re-encoding to h264
-    // "-c:v",
-    // "libx264",
-    // "-b:v",
-    // "5000k",
-    // "-bf",
-    // "-1",
-
-    // for re-encoding to VP8
-    // "-c:v",
-    // "libvpx",
-    // "-b:v",
-    // "2M",
-    // "-deadline",
-    // "realtime",
-    // "-max_delay",
-    // "0",
-
-    // for shrinking output size by 2
-    // "-vf",
-    // "scale=iw/2:-2",
-
-    "-f",
-    "tee",
-    `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
-  ]);
-
-  child.on("error", () => {
-    // catches execution error (bad file)
-    console.log(`Error executing binary: ${ffmpegPath}`);
-  });
-
-  child.stdout.on("data", (data) => {
-    console.log(data.toString());
-  });
-
-  child.stderr.on("data", (data) => {
-    console.log(data.toString());
-  });
-
-  child.on("close", (code) => {
-    console.log(`Process exited with code: ${code}`);
-    if (code === 0) {
-      console.log(`FFmpeg finished successfully`);
-    } else {
-      console.log(`FFmpeg encountered an error, check the console output`);
-    }
-  });
-}
-function startFFMPEGBroadcaster(port, rtcpPort) {
-  // spawn an ffmpeg process
-  const child = childProcess.spawn(
-    "ffmpeg",
-    // note, args must be an array when using spawn
-    // [
-    //   "-i",
-    //   `${inputFile}`,
-    //   // copy over the input streams of the input file to the output file
-    //   "-map",
-    //   "0",
-    //   "-c",
-    //   "copy",
-    //   // transcode the file into hevc from h264
-    //   "-c:v",
-    //   "libx265",
-    //   `${outputFile}`,
-    // ],
-    [
-      "-re",
-      "-v",
-      "info",
-      "-stream_loop",
-      "-1",
-      "-i",
-      "./test.mp4",
-
-      // generic libav soptions:
-      "-cpu-used",
-      "8",
-
-      "-map",
-      "0:v:0",
-
-      "-pix_fmt",
-      "yuv420p",
-
-      // for no re-encoding (only works if source is encoded correctly)
-      // "-c:v",
-      // "copy",
-
-      // for re-encoding to h264
-      "-c:v",
-      "libx264",
-      "-b:v",
-      "5000k",
-      // "-bf",
-      // "-1",
-
-      // for re-encoding to VP8
-      // "-c:v",
-      // "libvpx",
-      // "-b:v",
-      // "2M",
-      // "-deadline",
-      // "realtime",
-      // "-max_delay",
-      // "0",
-
-      // for shrinking output size by 2
-      // "-vf",
-      // "scale=iw/2:-2",
-
-      "-f",
-      "tee",
-      `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${port}?rtcpport=${rtcpPort}`,
-    ]
+  console.log(
+    "Starting FFMPEG child process. Start streaming to srt://127.0.0.1:9191"
   );
+  console.log(
+    `rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`
+  );
+  // spawn an ffmpeg process
+  //   const child = childProcess.spawn("ffmpeg", [
+  //     "-re",
+  //     "-v",
+  //     "info",
+  //     "-stream_loop",
+  //     "-1",
+  //     "-i",
+  //     "srt://127.0.0.1:9191?mode=listener         ",
+  //     // "srt://127.0.0.1:9191?mode=listener&transtype=live&rcvlatency=250&peerlatency=250&mss=1360&rcvbuf=443836",
+  //     // `srt://127.0.0.1:9191?mode=listener&transtype=live&latency=${rttMillis * 4}&ffs=128000&rcvbuf=${calc_rcv_buf_bytes(rttMillis,)}`,
+  //     // "srt://127.0.0.1:9191?mode=listener&transtype=live&latency=50",
+  //     // "srt://127.0.0.1:9191?mode=listener&transtype=live&latency=3000000&ffs=128000&rcvbuf=100058624",
 
-  child.on("error", () => {
-    // catches execution error (bad file)
-    console.log(`Error executing binary: ${ffmpegPath}`);
-  });
+  //     // generic libav soptions:
+  //     // "-cpu-used",
+  //     // "8",
 
-  child.stdout.on("data", (data) => {
-    console.log(data.toString());
-  });
+  //     "-map",
+  //     "0:v:0",
 
-  child.stderr.on("data", (data) => {
-    console.log(data.toString());
-  });
+  //     // "-pix_fmt",
+  //     // "yuv420p",
 
-  child.on("close", (code) => {
-    console.log(`Process exited with code: ${code}`);
-    if (code === 0) {
-      console.log(`FFmpeg finished successfully`);
-    } else {
-      console.log(`FFmpeg encountered an error, check the console output`);
-    }
-  });
+  //     // for no re-encoding (only works if source is encoded correctly)
+  //     "-c:v",
+  //     "copy",
+
+  //     // for re-encoding to h264
+  //     // "-c:v",
+  //     // "libx264",
+  //     // "-b:v",
+  //     // "5000k",
+  //     // "-bf",
+  //     // "-1",
+
+  //     // for re-encoding to VP8
+  //     // "-c:v",
+  //     // "libvpx",
+  //     // "-b:v",
+  //     // "2M",
+  //     // "-deadline",
+  //     // "realtime",
+  //     // "-max_delay",
+  //     // "0",
+
+  //     // for shrinking output size by 2
+  //     // "-vf",
+  //     // "scale=iw/2:-2",
+
+  //     "-f",
+  //     "tee",
+  //     `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
+  //   ]);
+
+  //   child.on("error", () => {
+  //     // catches execution error (bad file)
+  //     console.log(`Error executing binary: ${ffmpegPath}`);
+  //   });
+
+  //   child.stdout.on("data", (data) => {
+  //     console.log(data.toString());
+  //   });
+
+  //   child.stderr.on("data", (data) => {
+  //     console.log(data.toString());
+  //   });
+
+  //   child.on("close", (code) => {
+  //     console.log(`Process exited with code: ${code}`);
+  //     if (code === 0) {
+  //       console.log(`FFmpeg finished successfully`);
+  //     } else {
+  //       console.log(`FFmpeg encountered an error, check the console output`);
+  //     }
+  //   });
+  // }
+  // function startFFMPEGBroadcaster(port, rtcpPort) {
+  //   // spawn an ffmpeg process
+  //   const child = childProcess.spawn(
+  //     "ffmpeg",
+  //     // note, args must be an array when using spawn
+  //     // [
+  //     //   "-i",
+  //     //   `${inputFile}`,
+  //     //   // copy over the input streams of the input file to the output file
+  //     //   "-map",
+  //     //   "0",
+  //     //   "-c",
+  //     //   "copy",
+  //     //   // transcode the file into hevc from h264
+  //     //   "-c:v",
+  //     //   "libx265",
+  //     //   `${outputFile}`,
+  //     // ],
+  //     [
+  //       "-re",
+  //       "-v",
+  //       "info",
+  //       "-stream_loop",
+  //       "-1",
+  //       "-i",
+  //       "./test.mp4",
+
+  //       // generic libav soptions:
+  //       "-cpu-used",
+  //       "8",
+
+  //       "-map",
+  //       "0:v:0",
+
+  //       "-pix_fmt",
+  //       "yuv420p",
+
+  //       // for no re-encoding (only works if source is encoded correctly)
+  //       // "-c:v",
+  //       // "copy",
+
+  //       // for re-encoding to h264
+  //       "-c:v",
+  //       "libx264",
+  //       "-b:v",
+  //       "5000k",
+  //       // "-bf",
+  //       // "-1",
+
+  //       // for re-encoding to VP8
+  //       // "-c:v",
+  //       // "libvpx",
+  //       // "-b:v",
+  //       // "2M",
+  //       // "-deadline",
+  //       // "realtime",
+  //       // "-max_delay",
+  //       // "0",
+
+  //       // for shrinking output size by 2
+  //       // "-vf",
+  //       // "scale=iw/2:-2",
+
+  //       "-f",
+  //       "tee",
+  //       `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${port}?rtcpport=${rtcpPort}`,
+  //     ]
+  //   );
+
+  //   child.on("error", () => {
+  //     // catches execution error (bad file)
+  //     console.log(`Error executing binary: ${ffmpegPath}`);
+  //   });
+
+  //   child.stdout.on("data", (data) => {
+  //     console.log(data.toString());
+  //   });
+
+  //   child.stderr.on("data", (data) => {
+  //     console.log(data.toString());
+  //   });
+
+  //   child.on("close", (code) => {
+  //     console.log(`Process exited with code: ${code}`);
+  //     if (code === 0) {
+  //       console.log(`FFmpeg finished successfully`);
+  //     } else {
+  //       console.log(`FFmpeg encountered an error, check the console output`);
+  //     }
+  //     startFFMPEGBroadcaster(port, rtcpPort); // auto restart
+  //   });
 }
