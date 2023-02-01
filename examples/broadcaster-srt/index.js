@@ -120,6 +120,23 @@ function startFFMPEGSRTServer(
     "info",
     "-stream_loop",
     "-1",
+
+    // stream delay reduction
+    // https://stackoverflow.com/questions/16658873/how-to-minimize-the-delay-in-a-live-streaming-with-ffmpeg
+    "-fflags",
+    "nobuffer",
+    "-flags",
+    "low_delay",
+    // "-framedrop",
+    "-strict",
+    "experimental",
+    // "-probesize",
+    // "32",
+    // "-analyzeduration",
+    // "0",
+    // "-sync",
+    // "ext",
+
     "-i",
     `srt://127.0.0.1:${port}?mode=listener`,
     // "srt://127.0.0.1:9191?mode=listener&transtype=live&rcvlatency=250&peerlatency=250&mss=1360&rcvbuf=443836",
