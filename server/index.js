@@ -615,18 +615,18 @@ class SimpleMediasoupPeerServer {
       producers: {},
       consumers: {},
     };
-    console.log(this.peers);
-    console.log("routers:", this.routers);
+    // console.log(this.peers);
+    // console.log("routers:", this.routers);
     const r = this.getRouterForPeer("serverSideBroadcaster");
-    console.log(r);
+    // console.log(r);
     const transport = await r.createPlainTransport({
       // listenIp: config.mediasoup.plainTransportOptions.listenIp.ip,
       listenIp: "127.0.0.1",
       rtcpMux: false,
       comedia: true,
     });
-    console.log("Plain Transport Tuple: ", transport.tuple);
-    console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
+    // console.log("Plain Transport Tuple: ", transport.tuple);
+    // console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
 
     const appData = {
       label: "serverSideVideoProducer",
