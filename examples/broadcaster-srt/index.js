@@ -2,6 +2,8 @@ const express = require("express");
 const http = require("http");
 const childProcess = require("child_process");
 
+const ip = require("ip");
+
 // uncomment one of the following lines to see all mediasoup's internal logging messages:
 // process.env.DEBUG = "mediasoup*" // show everything mediasoup related
 process.env.DEBUG = "mediasoup:WARN:* mediasoup:ERROR:*"; // show only mediasoup warnings & errors
@@ -63,7 +65,6 @@ function setupSocketServer() {
         transportInfo.tuple.localPort,
         transportInfo.rtcpTuple.localPort
       );
-      console.log("SENDING INFO BACK TO SOCKET");
       // send info to socket
       socket.emit("srtData", {
         url: streamingEndpoint,
@@ -104,15 +105,13 @@ function startFFMPEGSRTServer(
   srtPort,
   rttMillis
 ) {
-  const url = "127.0.0.1";
+  const url = ip.address();
   const port = nextSRTPort++;
   const streamingEndpoint = `srt://${url}:${port}`;
   console.log(
     `Starting FFMPEG child process. Start streaming to ${streamingEndpoint}`
   );
-  // console.log(
-  //   `rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`
-  // );
+
   // spawn an ffmpeg process
   const child = childProcess.spawn("ffmpeg", [
     "-re",
@@ -138,7 +137,10 @@ function startFFMPEGSRTServer(
     // "ext",
 
     "-i",
+    // srt without any parameters
     `srt://127.0.0.1:${port}?mode=listener`,
+
+    // various attempts at SRT parameters
     // "srt://127.0.0.1:9191?mode=listener&transtype=live&rcvlatency=250&peerlatency=250&mss=1360&rcvbuf=443836",
     // `srt://127.0.0.1:9191?mode=listener&transtype=live&latency=${rttMillis * 4}&ffs=128000&rcvbuf=${calc_rcv_buf_bytes(rttMillis,)}`,
     // "srt://127.0.0.1:9191?mode=listener&transtype=live&latency=50",
@@ -157,6 +159,10 @@ function startFFMPEGSRTServer(
     // for no re-encoding (only works if source is encoded correctly)
     "-c:v",
     "copy",
+
+    // for enabling vp9 packetization (which is currently not in spec)
+    "-strict",
+    "experimental",
 
     // for re-encoding to h264
     // "-c:v",
@@ -182,6 +188,13 @@ function startFFMPEGSRTServer(
 
     "-f",
     "tee",
+    // for vp8
+    // `[select=v:f=rtp:ssrc=2222:payload_type=101]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
+
+    // for vp9
+    // `[select=v:f=rtp:ssrc=2222:payload_type=103]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
+
+    // for h264
     `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
   ]);
 

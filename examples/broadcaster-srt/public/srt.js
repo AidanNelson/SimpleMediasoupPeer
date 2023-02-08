@@ -4,7 +4,7 @@ async function main() {
   console.log("~~~~~~~~~~~~~~~~~");
 
   socket = io();
-
+ 
   socket.on("connect", () => {
     console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
     socket.emit("createServerSideBroadcaster");

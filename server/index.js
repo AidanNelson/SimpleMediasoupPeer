@@ -1,6 +1,7 @@
 const os = require("os");
 const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
+const log = require("debug");
 
 var ip = require("ip");
 const LOCAL_IP_ADDRESS = ip.address();
@@ -634,11 +635,29 @@ class SimpleMediasoupPeerServer {
       peerId: producingPeerId,
     };
 
+    console.log(JSON.stringify(r.rtpCapabilities, null, 4));
+
     const producer = await transport.produce({
       kind: "video",
       rtpParameters: {
         mid: "VIDEO",
         codecs: [
+          // for VP9
+          // {
+          //   mimeType: "video/VP9",
+          //   clockRate: 90000,
+          //   payloadType: 103,
+          //   parameters: {
+          //     "profile-id": 2,
+          //     "x-google-start-bitrate": 1000,
+          //   },
+          // },
+          // {
+          //   mimeType: "video/vp8",
+          //   payloadType: 101,
+          //   clockRate: 90000,
+          // },
+          // for h264
           {
             mimeType: "video/h264",
             payloadType: 112,
@@ -653,12 +672,12 @@ class SimpleMediasoupPeerServer {
               { type: "goog-remb" },
             ],
           },
-          {
-            mimeType: "video/rtx",
-            payloadType: 113,
-            clockRate: 90000,
-            parameters: { apt: 112 },
-          },
+          // {
+          //   mimeType: "video/rtx",
+          //   payloadType: 113,
+          //   clockRate: 90000,
+          //   parameters: { apt: 112 },
+          // },
         ],
         headerExtensions: [
           {
@@ -670,15 +689,19 @@ class SimpleMediasoupPeerServer {
             id: 13,
           },
         ],
+        // for vpx
+        // encodings: [{ ssrc: 2222 }],
+
+        // for h264
         encodings: [
           { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
           { ssrc: 22222224, rtx: { ssrc: 22222225 } },
           { ssrc: 22222226, rtx: { ssrc: 22222227 } },
           { ssrc: 22222228, rtx: { ssrc: 22222229 } },
         ],
-        rtcp: {
-          cname: "video-1",
-        },
+        // rtcp: {
+        //   cname: "video-1",
+        // },
       },
       appData: {
         label: "serverSideVideoProducer",
