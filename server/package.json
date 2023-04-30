@@ -19,7 +19,7 @@
   "dependencies": {
     "awaitqueue": "^2.3.3",
     "ip": "^1.1.8",
-    "mediasoup": "^3.6.28",
+    "mediasoup": "^3.11.24",
     "socket.io": "^4.5.2"
   },
   "devDependencies": {
