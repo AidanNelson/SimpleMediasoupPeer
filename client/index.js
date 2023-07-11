@@ -49,6 +49,11 @@ this.consumers = {
 this.desiredPeerConnections = new Set();
 
 */
+const debug = require("debug");
+const log = debug("simple-mediasoup-peer-client:log");
+log.log = console.log.bind(console);
+
+const logError = debug("simple-mediasoup-peer-client:error");
 
 import * as mediasoupClient from "mediasoup-client";
 import { io } from "socket.io-client";
@@ -230,7 +235,7 @@ export class SimpleMediasoupPeer {
     let producer;
 
     if (this.producers[label]) {
-      console.warn(`Already producing ${label}! Swapping track!`);
+      log(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });
       return;
     }
@@ -292,7 +297,7 @@ export class SimpleMediasoupPeer {
           },
         });
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
 
       await producer.close();
@@ -554,7 +559,7 @@ export class SimpleMediasoupPeer {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
-      console.error(err);
+      logError(err);
     }
   }
 
