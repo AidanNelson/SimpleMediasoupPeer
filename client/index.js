@@ -49,12 +49,6 @@ this.consumers = {
 this.desiredPeerConnections = new Set();
 
 */
-const debug = require("debug");
-const log = debug("simple-mediasoup-peer-client:log");
-log.log = console.log.bind(console);
-
-const logError = debug("simple-mediasoup-peer-client:error");
-
 import * as mediasoupClient from "mediasoup-client";
 import { io } from "socket.io-client";
 const debug = require("debug");
