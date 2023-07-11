@@ -25,7 +25,7 @@
   "dependencies": {
     "@swc/helpers": "^0.3.3",
     "browserlist": "^1.0.1",
-    "debug": "^4.3.3",
+    "debug": "^4.3.4",
     "mediasoup-client": "^3.6.43",
     "regenerator-runtime": "^0.13.9",
     "socket.io-client": "^4.5.2"
