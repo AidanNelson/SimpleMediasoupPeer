@@ -118,7 +118,7 @@ Interested in developing on this library locally? Read on [here](./development.m
 
 ### Improvements
 
--   [ ] -   Update to logging library
+-   [x] -   Update to logging library
 -   [ ] -   Optionally set custom update frequency on server?
 -   [ ] -   Override update frequency if there is a broadcast?
 -   [ ] -   Allow metadata instead of label?
