@@ -263,6 +263,10 @@ function main() {
   mediasoupPeer.on("sosos", () => {
     console.log("some callback");
   });
+
+  mediasoupPeer.on("data", (data) => {
+    console.log("got data:", data);
+  });
 }
 
 main();

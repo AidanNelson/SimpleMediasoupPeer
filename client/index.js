@@ -94,7 +94,7 @@ export class SimpleMediasoupPeer {
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
 
-    this.publiclyExposedEvents = new Set(["peerConnection", "peerDisconnection", "track"]);
+    this.publiclyExposedEvents = new Set(["peerConnection", "peerDisconnection", "track", "data"]);
     this.userDefinedCallbacks = {};
 
     // add promisified socket request to make our lives easier
@@ -497,7 +497,7 @@ export class SimpleMediasoupPeer {
           'DataConsumer "message" event [streamId:%d]',
           dataConsumer.sctpStreamParameters.streamId
         );
-
+        this.callEventCallback("data", { from: dataConsumer.appData.peerId, data: message });
         console.log("got message TODO call callback!", message);
       });
     } catch (error) {
