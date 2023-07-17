@@ -326,7 +326,10 @@ class SimpleMediasoupPeerServer {
       }
 
       case "produceData": {
-        logger("produce data not implemented yet");
+        logger("Creating server-side data producer");
+        const producer = await this.createDataProducer(id, request.data);
+        callback({ id: producer.id });
+
         break;
       }
 
@@ -603,6 +606,62 @@ class SimpleMediasoupPeerServer {
     }
 
     return producer;
+  }
+
+  async createDataProducer(producingPeerId, data) {
+    const { transportId, sctpStreamParameters, label, protocol, appData } = data;
+
+    const transport = this.getTransportForPeer(producingPeerId, transportId);
+
+    if (!transport) throw new Error(`transport with id "${transportId}" not found`);
+
+    const dataProducer = await transport.produceData({
+      sctpStreamParameters,
+      label,
+      protocol,
+      appData,
+    });
+
+    // add producer to the peer object
+    this.peers[producingPeerId].producers[dataProducer.id] = {};
+    this.peers[producingPeerId].producers[dataProducer.id][
+      this.peers[producingPeerId].routerIndex
+    ] = dataProducer;
+
+    return dataProducer;
+
+    // switch (dataProducer.label)
+    // {
+    //   case 'chat':
+    //   {
+    //     // Create a server-side DataConsumer for each Peer.
+    //     for (const otherPeer of this._getJoinedPeers({ excludePeer: peer }))
+    //     {
+    //       this._createDataConsumer(
+    //         {
+    //           dataConsumerPeer : otherPeer,
+    //           dataProducerPeer : peer,
+    //           dataProducer
+    //         });
+    //     }
+
+    //     break;
+    //   }
+
+    //   case 'bot':
+    //   {
+    //     // Pass it to the bot.
+    //     this._bot.handlePeerDataProducer(
+    //       {
+    //         dataProducerId : dataProducer.id,
+    //         peer
+    //       });
+
+    //     break;
+    //   }
+    // }
+
+    // break;
   }
 
   async broadcastProducer(producingPeerId, producerId) {

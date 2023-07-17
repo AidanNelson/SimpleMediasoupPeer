@@ -207,6 +207,8 @@ export class SimpleMediasoupPeer {
     await this.createSendTransport();
     await this.createRecvTransport();
 
+    await this.addDataProducer();
+
     for (const label in this.tracksToProduce) {
       const track = this.tracksToProduce[label].track;
       const broadcast = this.tracksToProduce[label].broadcast;
@@ -300,6 +302,46 @@ export class SimpleMediasoupPeer {
     });
 
     this.producers[label] = producer;
+  }
+
+  async addDataProducer() {
+    logger("addDataProducer()");
+
+    try {
+      // Create chat DataProducer.
+      const dataProducer = await this.sendTransport.produceData({
+        ordered: false,
+        maxRetransmits: 1,
+        label: "data",
+        priority: "medium",
+        appData: {},
+      });
+      this.producers["data"] = dataProducer;
+
+      dataProducer.on("transportclose", () => {
+        dataProducer = null;
+      });
+
+      dataProducer.on("open", () => {
+        logger('DataProducer "open" event');
+      });
+
+      dataProducer.on("close", () => {
+        logger('DataProducer "close" event');
+        dataProducer = null;
+      });
+
+      dataProducer.on("error", (error) => {
+        logger('DataProducer "error" event:%o', error);
+      });
+
+      dataProducer.on("bufferedamountlow", () => {
+        logger('DataProducer "bufferedamountlow" event');
+      });
+    } catch (error) {
+      logger("addDataProducer() | failed:%o", error);
+      throw error;
+    }
   }
 
   ensureConnectedToDesiredPeerConnections() {
@@ -545,6 +587,19 @@ export class SimpleMediasoupPeer {
     }
   }
 
+  /*
+  send data to all peers in room (if connected)
+  */
+  send(data) {
+    try {
+      this.producers["data"].send(data);
+    } catch (error) {
+      logger("DataProducer.send() failed:%o", error);
+
+      throw error;
+    }
+  }
+
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   // Initial Setup
@@ -635,6 +690,7 @@ export class SimpleMediasoupPeer {
       "producedata",
       async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
         try {
+          console.log("trying to set up data producer");
           // eslint-disable-next-line no-shadow
           const { id } = await this.socket.request("mediasoupSignaling", {
             type: "produceData",

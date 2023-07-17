@@ -216,6 +216,10 @@ function main() {
 
   mediasoupPeer = new SimpleMediasoupPeer();
 
+  setTimeout(() => {
+    mediasoupPeer.send("hello");
+  }, 2000);
+
   document.getElementById("joinRoomSubmit").addEventListener("click", () => {
     const roomId = document.getElementById("roomIdInput").value;
     console.log("joining room", roomId);
@@ -247,19 +251,19 @@ function main() {
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.on("peerConnection", ({peerId}) => {
+  mediasoupPeer.on("peerConnection", ({ peerId }) => {
     console.log("Peer joined:", peerId);
     addPeer(peerId);
   });
 
-  mediasoupPeer.on("peerDisconnection", ({peerId}) => {
+  mediasoupPeer.on("peerDisconnection", ({ peerId }) => {
     console.log("Peer disconnected:", peerId);
     removePeer(peerId);
   });
   // test with non-existant event
-    mediasoupPeer.on("sosos", () => {
-      console.log("some callback");
-    });
+  mediasoupPeer.on("sosos", () => {
+    console.log("some callback");
+  });
 }
 
 main();
