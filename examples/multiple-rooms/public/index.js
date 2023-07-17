@@ -216,14 +216,13 @@ function main() {
 
   mediasoupPeer = new SimpleMediasoupPeer();
 
-  setTimeout(() => {
-    mediasoupPeer.send("hello");
-  }, 2000);
-
   document.getElementById("joinRoomSubmit").addEventListener("click", () => {
     const roomId = document.getElementById("roomIdInput").value;
     console.log("joining room", roomId);
     mediasoupPeer.joinRoom(roomId);
+    setTimeout(() => {
+      mediasoupPeer.send("hello");
+    }, 2000);
   });
 
   document.getElementById("sendCamera").addEventListener(

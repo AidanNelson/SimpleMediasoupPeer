@@ -2,7 +2,7 @@ const express = require("express");
 const http = require("http");
 
 // uncomment one of the following lines to see all mediasoup's internal logging messages:
-// process.env.DEBUG = "mediasoup*"; // show everything mediasoup related
+process.env.DEBUG = "SimpleMediasoupPeer*"; // show everything mediasoup related
 // process.env.DEBUG = "mediasoup:WARN:* mediasoup:ERROR:*"; // show only mediasoup warnings & errors
 
 const SimpleMediasoupPeerServer = require("simple-mediasoup-peer-server");
