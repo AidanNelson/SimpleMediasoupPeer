@@ -58,6 +58,10 @@ function addPeerElements(id) {
   audioEl.setAttribute("autoplay", true);
   peerEl.appendChild(audioEl);
 
+  let dataEl = document.createElement("div");
+  dataEl.id = id + "_data";
+  peerEl.append(dataEl);
+
   const headerEl = document.createElement("div");
   const titleEl = document.createElement("p");
   titleEl.innerText = "Client " + id + " - ";
@@ -220,9 +224,6 @@ function main() {
     const roomId = document.getElementById("roomIdInput").value;
     console.log("joining room", roomId);
     mediasoupPeer.joinRoom(roomId);
-    setTimeout(() => {
-      mediasoupPeer.send("hello");
-    }, 2000);
   });
 
   document.getElementById("sendCamera").addEventListener(
@@ -248,6 +249,14 @@ function main() {
     false
   );
 
+  document.getElementById("sayHello").addEventListener(
+    "click",
+    () => {
+      mediasoupPeer.send("hello");
+    },
+    false
+  );
+
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
   mediasoupPeer.on("peerConnection", ({ peerId }) => {
@@ -266,6 +275,8 @@ function main() {
 
   mediasoupPeer.on("data", (data) => {
     console.log("got data:", data);
+    let el = document.getElementById(data.from + "_data");
+    el.innerText += data.data;
   });
 }
 
