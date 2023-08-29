@@ -89,7 +89,7 @@ export class SimpleMediasoupPeer {
     this.sendTransport = null;
     this.recvTransport = null;
 
-    this.tracksToProduce = {};
+    // this.tracksToProduce = {};
 
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
@@ -132,36 +132,6 @@ export class SimpleMediasoupPeer {
     // this.socket.on("clientDisconnected", (id) => {
     //   logger("Client disconnected:", id);
     // });
-  }
-
-  async joinRoom(roomId) {
-    if (!roomId) {
-      logger("Please enter a room id to join");
-      return;
-    }
-
-    if (this.currentRoomId === roomId) {
-      logger("Already joined room: ", roomId);
-      return;
-    } else {
-      // if we're in a different room, disconnect from all peers therein
-      this.socket.request("mediasoupSignaling", {
-        type: "leaveRoom",
-        data: { roomId: roomId },
-      });
-      for (const peerId in this.latestAvailableProducers) {
-        this.disconnectFromPeer(peerId);
-        this.callEventCallback("peerDisconnection", { peerId });
-      }
-      this.latestAvailableProducers = {};
-    }
-
-    // finally, join the new room
-    await this.socket.request("mediasoupSignaling", {
-      type: "joinRoom",
-      data: { roomId },
-    });
-    this.currentRoomId = roomId;
   }
 
   callEventCallback(event, data) {
@@ -210,30 +180,19 @@ export class SimpleMediasoupPeer {
 
     await this.addDataProducer();
 
-    for (const label in this.tracksToProduce) {
-      const track = this.tracksToProduce[label].track;
-      const broadcast = this.tracksToProduce[label].broadcast;
-      const customEncodings = this.tracksToProduce[label].customEncodings;
-      this.addProducer(track, label, broadcast, customEncodings);
-    }
+    // for (const label in this.tracksToProduce) {
+    //   const track = this.tracksToProduce[label].track;
+    //   const broadcast = this.tracksToProduce[label].broadcast;
+    //   const customEncodings = this.tracksToProduce[label].customEncodings;
+    //   this.addProducer(track, label, broadcast, customEncodings);
+    // }
   }
 
-  async addTrack(track, label, broadcast = false, customEncodings = false) {
-    this.tracksToProduce[label] = {
-      track,
-      broadcast,
-      customEncodings,
-    };
-    logger(this.tracksToProduce);
-    await this.addProducer(track, label, broadcast, customEncodings);
-  }
-
-  async addProducer(track, label, broadcast, customEncodings) {
+  async _addTrack({ track = null, customEncodings = null, appData = null }) {
     let producer;
 
-    if (this.producers[label]) {
-      log(`Already producing ${label}! Swapping track!`);
-      this.producers[label].replaceTrack({ track });
+    if (this.producers[track.id]) {
+      log(`Already producing track with ID ${track.id}!`);
       return;
     }
 
@@ -242,7 +201,7 @@ export class SimpleMediasoupPeer {
         { maxBitrate: 500000 }, // 0.5Mbps
       ];
 
-      if (customEncodings) {
+      if (customEncodings.video) {
         encodings = customEncodings;
         logger("Using custom encodings:", encodings);
       }
@@ -254,17 +213,15 @@ export class SimpleMediasoupPeer {
         codecOptions: {
           videoGoogleStartBitrate: 1000,
         },
-        appData: {
-          label,
-          broadcast,
-        },
+        appData: appData,
       });
+      this.producers[track.id] = producer;
     } else if (track.kind === "audio") {
       let encodings = [
         { maxBitrate: 64000 }, // 64 kbps
       ];
 
-      if (customEncodings) {
+      if (customEncodings.audio) {
         encodings = customEncodings;
       }
 
@@ -272,11 +229,9 @@ export class SimpleMediasoupPeer {
         track: track,
         stopTracks: false,
         encodings,
-        appData: {
-          label,
-          broadcast,
-        },
+        appData: appData,
       });
+      this.producers[track.id] = producer;
     }
 
     producer.on("transportclose", () => {
@@ -286,23 +241,25 @@ export class SimpleMediasoupPeer {
 
     producer.on("trackended", async () => {
       logger("track ended");
-      try {
-        await this.socket.request("mediasoupSignaling", {
-          type: "closeProducer",
-          data: {
-            producerId: producer.id,
-          },
-        });
-      } catch (err) {
-        logError(err);
-      }
-
-      await producer.close();
-
+      this.closeProducer(producer);
       producer = null;
     });
+  }
 
-    this.producers[label] = producer;
+  async closeProducer(producer) {
+    try {
+      await this.socket.request("mediasoupSignaling", {
+        type: "closeProducer",
+        data: {
+          producerId: producer.id,
+        },
+      });
+    } catch (err) {
+      logError(err);
+    }
+
+    await producer.close();
+    delete this.producers[track.id];
   }
 
   async addDataProducer() {
@@ -583,6 +540,93 @@ export class SimpleMediasoupPeer {
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   // public methods
+
+  async joinRoom(roomId) {
+    if (!roomId) {
+      console.log("Missing roomId.  Please enter a roomId when calling joinRoom().");
+      return;
+    }
+
+    if (this.currentRoomId === roomId) {
+      console.log("Already joined room: ", roomId);
+      return;
+    } else if (this.currentRoomId){
+      console.log(`Leaving room: ${this.currentRoomId}`)
+      // if we're in a different room, disconnect from all peers therein
+      this.socket.request("mediasoupSignaling", {
+        type: "leaveRoom",
+        data: { roomId: roomId },
+      });
+      for (const peerId in this.latestAvailableProducers) {
+        this.disconnectFromPeer(peerId);
+        this.callEventCallback("peerDisconnection", { peerId });
+      }
+      this.latestAvailableProducers = {};
+    }
+
+    // finally, join the new room
+    await this.socket.request("mediasoupSignaling", {
+      type: "joinRoom",
+      data: { roomId },
+    });
+    this.currentRoomId = roomId;
+    console.log(`Connected to room with ID ${roomId}`);
+  }
+
+  async addStream({ stream, customEncodings, customData }) {
+    stream.getVideoTracks().forEach((track) => {
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+    stream.getAudioTracks().forEach((track) => {
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+
+    // monitor tracks added to the stream, and add / remove them as needed
+    stream.addEventListener("addtrack", (event) => {
+      const { track } = event;
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+
+    stream.addEventListener("removetrack", (event) => {
+      const { track } = event;
+      this.removeTrack(track);
+    });
+  }
+
+  async removeStream() {
+    stream.getVideoTracks().forEach((track) => {
+      this.removeTrack(track);
+    });
+    stream.getAudioTracks().forEach((track) => {
+      this.removeTrack(track);
+    });
+  }
+
+  async addTrack({ track, customEncodings, customData }) {
+    this._addTrack({ track, customEncodings, appData: { customData } });
+  }
+
+  async removeTrack(track) {
+    if (this.producers[track.id]) {
+      const producer = this.producers[track.id];
+      this.closeProducer(producer);
+      logger(`Removing ${track.kind} track with ID ${track.id}`);
+    } else {
+      logger(`Could not find track: ${track}`);
+    }
+  }
 
   /*
   add a callback for a given event
