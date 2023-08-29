@@ -5,17 +5,6 @@ https://github.com/AidanNelson/SimpleMediasoupPeer/
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-these are the tracks we would like to produce
-used for re-initializing when client experiences
-a change in socket ID
-
-this.tracksToProduce = {
-    camera: {
-      track,
-      broadcast: false
-    }
-}
-
 // these are the tracks we are currently producing
 // keyed with their label
 this.producers = {
@@ -88,8 +77,6 @@ export class SimpleMediasoupPeer {
 
     this.sendTransport = null;
     this.recvTransport = null;
-
-    // this.tracksToProduce = {};
 
     this.latestAvailableProducers = {};
     this.desiredPeerConnections = new Set();
@@ -179,13 +166,6 @@ export class SimpleMediasoupPeer {
     await this.createRecvTransport();
 
     await this.addDataProducer();
-
-    // for (const label in this.tracksToProduce) {
-    //   const track = this.tracksToProduce[label].track;
-    //   const broadcast = this.tracksToProduce[label].broadcast;
-    //   const customEncodings = this.tracksToProduce[label].customEncodings;
-    //   this.addProducer(track, label, broadcast, customEncodings);
-    // }
   }
 
   async _addTrack({ track = null, customEncodings = null, appData = null }) {
@@ -312,7 +292,6 @@ export class SimpleMediasoupPeer {
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
-          this.latestAvailableProducers[peerId].producers[producerId].broadcast ||
           this.options.autoConnect;
 
         if (shouldConsume) {
@@ -326,7 +305,6 @@ export class SimpleMediasoupPeer {
       for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
-          this.latestAvailableProducers[peerId].dataProducers[dataProducerId].broadcast ||
           this.options.autoConnect;
 
         if (shouldConsume) {
@@ -678,8 +656,7 @@ export class SimpleMediasoupPeer {
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
 
-      // by default do not let us pause a broadcasts
-      if (!consumer || consumer.appData.broadcast) continue;
+      if (!consumer) continue;
       if (!consumer.paused) {
         logger("Pausing consumer!");
 
