@@ -58,6 +58,10 @@ function addPeerElements(id) {
   audioEl.setAttribute("autoplay", true);
   peerEl.appendChild(audioEl);
 
+  let dataEl = document.createElement("div");
+  dataEl.id = id + "_data";
+  peerEl.append(dataEl);
+
   const headerEl = document.createElement("div");
   const titleEl = document.createElement("p");
   titleEl.innerText = "Client " + id + " - ";
@@ -245,21 +249,35 @@ function main() {
     false
   );
 
+  document.getElementById("sayHello").addEventListener(
+    "click",
+    () => {
+      mediasoupPeer.send("hello");
+    },
+    false
+  );
+
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.on("peerConnection", ({peerId}) => {
+  mediasoupPeer.on("peerConnection", ({ peerId }) => {
     console.log("Peer joined:", peerId);
     addPeer(peerId);
   });
 
-  mediasoupPeer.on("peerDisconnection", ({peerId}) => {
+  mediasoupPeer.on("peerDisconnection", ({ peerId }) => {
     console.log("Peer disconnected:", peerId);
     removePeer(peerId);
   });
   // test with non-existant event
-    mediasoupPeer.on("sosos", () => {
-      console.log("some callback");
-    });
+  mediasoupPeer.on("sosos", () => {
+    console.log("some callback");
+  });
+
+  mediasoupPeer.on("data", (data) => {
+    console.log("got data:", data);
+    let el = document.getElementById(data.from + "_data");
+    el.innerText += data.data;
+  });
 }
 
 main();
