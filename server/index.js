@@ -138,7 +138,7 @@ class SimpleMediasoupPeerServer {
     {
         peerId1: {},
         peerId2: {
-            'producerId12345': {label: 'camera', peerId: '12jb12kja3', broadcast: true}
+            'producerId12345': {label: 'camera', peerId: '12jb12kja3'}
             'producerId88888': {label: 'microphone', peerId: '12jb12kja3'}
         }
     }
@@ -763,10 +763,6 @@ class SimpleMediasoupPeerServer {
     this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
       producer;
 
-    if (appData.broadcast) {
-      this.broadcastProducer(producingPeerId, producer.id);
-    }
-
     return producer;
   }
 
@@ -800,37 +796,6 @@ class SimpleMediasoupPeerServer {
     // }
 
     return dataProducer;
-  }
-
-  async broadcastProducer(producingPeerId, producerId) {
-    // automatically create consumers for every other peer to consume this producer
-
-    for (const consumingPeerId in this.peers) {
-      if (consumingPeerId !== producingPeerId) {
-        const consumer = await this.getOrCreateConsumerForPeer(
-          consumingPeerId,
-          producingPeerId,
-          producerId
-        );
-        if (consumer) {
-          const consumerInfo = {
-            peerId: producingPeerId,
-            producerId: consumer.producerId,
-            id: consumer.id,
-            kind: consumer.kind,
-            rtpParameters: consumer.rtpParameters,
-            type: consumer.type,
-            appData: consumer.appData,
-            producerPaused: consumer.producerPaused,
-          };
-
-          this.peers[consumingPeerId].socket.emit("mediasoupSignaling", {
-            type: "createConsumer",
-            data: consumerInfo,
-          });
-        }
-      }
-    }
   }
 
   async createTransportForPeer(id, data) {
