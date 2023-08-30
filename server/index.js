@@ -360,12 +360,10 @@ class SimpleMediasoupPeerServer {
             producerPaused: consumer.producerPaused,
           };
 
-          this.peers[id].socket.emit("mediasoupSignaling", {
-            type: "createConsumer",
-            data: consumerInfo,
-          });
+          callback({data: consumerInfo});
         }
-        callback();
+
+        
         break;
       }
 
@@ -388,12 +386,8 @@ class SimpleMediasoupPeerServer {
             appData: dataConsumer.appData,
           };
 
-          this.peers[id].socket.emit("mediasoupSignaling", {
-            type: "createDataConsumer",
-            data: dataConsumerInfo,
-          });
+          callback({data: dataConsumerInfo});
         }
-        callback();
         break;
       }
 
