@@ -43,6 +43,12 @@ import { io } from "socket.io-client";
 const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer");
 
+const DEFAULT_VIDEO_ENCODINGS = [
+  { maxBitrate: 500000 }, // 0.5Mbps
+];
+const DEFAULT_AUDIO_ENCODINGS = [
+  { maxBitrate: 64000 }, // 64Kbps
+];
 export class SimpleMediasoupPeer {
   constructor(options = {}) {
     const defaultOptions = {
@@ -104,7 +110,7 @@ export class SimpleMediasoupPeer {
       if (this.options.roomId) {
         this.joinRoom(this.options.roomId);
       } else {
-        logger("No room Id set. Please call 'joinRoom' to connect!");
+        logger("Please call 'joinRoom(roomId)' to connect to a room.");
       }
     });
 
@@ -120,6 +126,210 @@ export class SimpleMediasoupPeer {
     //   logger("Client disconnected:", id);
     // });
   }
+
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  // public methods
+
+  async joinRoom(roomId) {
+    if (!roomId) {
+      console.log("Missing roomId.  Please enter a roomId when calling joinRoom().");
+      return;
+    }
+
+    if (this.currentRoomId && this.currentRoomId === roomId) {
+      console.log("Already joined room: ", roomId,".");
+      return;
+    } else if (this.currentRoomId) {
+      await this.leaveRoom(this.currentRoomId);
+    }
+
+    // finally, join the new room
+    await this.socket.request("mediasoupSignaling", {
+      type: "joinRoom",
+      data: { roomId },
+    });
+    this.currentRoomId = roomId;
+    console.log(`Connected to room with ID ${roomId}`);
+  }
+
+  async leaveRoom(roomId){
+    console.log(`Leaving room: ${roomId}`);
+
+    this.socket.request("mediasoupSignaling", {
+      type: "leaveRoom",
+      data: { roomId: roomId },
+    });
+
+
+    for (const peerId in this.latestAvailableProducers) {
+      this.disconnectFromPeer(peerId);
+      this.callEventCallback("peerDisconnection", { peerId });
+    }
+
+    this.currentRoomId = null;
+    this.latestAvailableProducers = {};
+  }
+
+  async addStream(stream, customEncodings= null, customData = {}) {
+    stream.getVideoTracks().forEach((track) => {
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+    stream.getAudioTracks().forEach((track) => {
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+
+    // monitor tracks added to the stream, and add / remove them as needed
+    stream.addEventListener("addtrack", (event) => {
+      const { track } = event;
+      this._addTrack({
+        track,
+        customEncodings,
+        appData: { customData: customData, streamID: stream.id },
+      });
+    });
+
+    stream.addEventListener("removetrack", (event) => {
+      const { track } = event;
+      this.removeTrack(track);
+    });
+  }
+
+  async removeStream() {
+    stream.getVideoTracks().forEach((track) => {
+      this.removeTrack(track);
+    });
+    stream.getAudioTracks().forEach((track) => {
+      this.removeTrack(track);
+    });
+  }
+
+  async addTrack({ track, customEncodings, customData }) {
+    this._addTrack({ track, customEncodings, appData: { customData } });
+  }
+
+  async removeTrack(track) {
+    if (this.producers[track.id]) {
+      const producer = this.producers[track.id];
+      this._closeProducer(producer);
+      logger(`Removing ${track.kind} track with ID ${track.id}`);
+    } else {
+      logger(`Could not find track: ${track}`);
+    }
+  }
+
+  /*
+  add a callback for a given event
+  */
+  on(event, callback) {
+    if (this.publiclyExposedEvents.has(event)) {
+      logger(`Setting ${event} callback.`);
+      this.userDefinedCallbacks[event] = callback;
+    } else {
+      console.error(`Whoops!  No ${event} event exists.`);
+    }
+  }
+
+  /*
+  connect to a given peer
+  */
+  connectToPeer(otherPeerId) {
+    logger("Attempting to connect to peer", otherPeerId);
+    this.desiredPeerConnections.add(otherPeerId);
+
+    for (const producerId in this.latestAvailableProducers[otherPeerId]) {
+      const existingConsumer =
+        this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
+      logger("existingConsumer:", existingConsumer);
+      if (!existingConsumer) {
+        this._requestConsumer(otherPeerId, producerId);
+      }
+    }
+  }
+
+  /*
+  disconnect from a given peer
+  */
+  disconnectFromPeer(otherPeerId) {
+    for (let producerId in this.consumers[otherPeerId]) {
+      const consumer = this.consumers[otherPeerId][producerId];
+      this.closeConsumer(consumer);
+    }
+    delete this.consumers[otherPeerId];
+    this.desiredPeerConnections.delete(otherPeerId);
+  }
+
+  /*
+  pause all tracks from a given peer
+  */
+  async pausePeer(otherPeerId) {
+    const consumers = this.consumers[otherPeerId];
+
+    for (const producerId in consumers) {
+      const consumer = consumers[producerId];
+
+      if (!consumer) continue;
+      if (!consumer.paused) {
+        logger("Pausing consumer!");
+
+        await this.socket.request("mediasoupSignaling", {
+          type: "pauseConsumer",
+          data: {
+            producerId: consumer.producerId,
+          },
+        });
+        consumer.pause();
+      }
+    }
+  }
+
+  /*
+  resume all tracks from a given peer
+  */
+  async resumePeer(otherPeerId) {
+    const consumers = this.consumers[otherPeerId];
+
+    for (const producerId in consumers) {
+      const consumer = consumers[producerId];
+
+      if (!consumer) continue;
+      if (consumer.paused) {
+        logger("Resuming consumer!");
+        await this.socket.request("mediasoupSignaling", {
+          type: "resumeConsumer",
+          data: {
+            producerId: consumer.producerId,
+          },
+        });
+        consumer.resume();
+      }
+    }
+  }
+
+  /*
+  send data to all peers in room (if connected)
+  */
+  send(data) {
+    try {
+      this.producers["data"].send(data);
+    } catch (error) {
+      logger("DataProducer.send() failed:%o", error);
+
+      throw error;
+    }
+  }
+
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
+  // private methods
 
   callEventCallback(event, data) {
     const callback = this.userDefinedCallbacks[event];
@@ -165,7 +375,7 @@ export class SimpleMediasoupPeer {
     await this.createSendTransport();
     await this.createRecvTransport();
 
-    await this.addDataProducer();
+    await this._addDataProducer();
   }
 
   async _addTrack({ track = null, customEncodings = null, appData = null }) {
@@ -175,58 +385,47 @@ export class SimpleMediasoupPeer {
       log(`Already producing track with ID ${track.id}!`);
       return;
     }
+    
+    if (track.kind === "video" || track.kind === "audio") {
+      let encodings = track.kind === "video"? DEFAULT_VIDEO_ENCODINGS : DEFAULT_AUDIO_ENCODINGS;
 
-    if (track.kind === "video") {
-      let encodings = [
-        { maxBitrate: 500000 }, // 0.5Mbps
-      ];
-
-      if (customEncodings.video) {
-        encodings = customEncodings;
-        logger("Using custom encodings:", encodings);
+      if (track.kind === "video" && customEncodings && customEncodings.video) {
+        encodings = customEncodings.video;
+        logger("Using custom video encodings:", encodings);
+      }
+      if (track.kind === "video" && customEncodings && customEncodings.audio) {
+        encodings = customEncodings.audio;
+        logger("Using custom audio encodings:", encodings);
       }
 
       producer = await this.sendTransport.produce({
         track: track,
         stopTracks: false,
         encodings,
-        codecOptions: {
+        codecOptions: track.kind === "video"? {
           videoGoogleStartBitrate: 1000,
-        },
+        } : null,
         appData: appData,
       });
-      this.producers[track.id] = producer;
-    } else if (track.kind === "audio") {
-      let encodings = [
-        { maxBitrate: 64000 }, // 64 kbps
-      ];
-
-      if (customEncodings.audio) {
-        encodings = customEncodings;
-      }
-
-      producer = await this.sendTransport.produce({
-        track: track,
-        stopTracks: false,
-        encodings,
-        appData: appData,
+      
+      producer.on("transportclose", () => {
+        logger("transport closed");
+        producer = null;
       });
+  
+      producer.on("trackended", async () => {
+        logger("track ended");
+        this._closeProducer(producer);
+        producer = null;
+      });
+
       this.producers[track.id] = producer;
+    } else {
+      console.log("Unrecognized track type: ",track);
     }
-
-    producer.on("transportclose", () => {
-      logger("transport closed");
-      producer = null;
-    });
-
-    producer.on("trackended", async () => {
-      logger("track ended");
-      this.closeProducer(producer);
-      producer = null;
-    });
   }
 
-  async closeProducer(producer) {
+  async _closeProducer(producer) {
     try {
       await this.socket.request("mediasoupSignaling", {
         type: "closeProducer",
@@ -242,8 +441,8 @@ export class SimpleMediasoupPeer {
     delete this.producers[track.id];
   }
 
-  async addDataProducer() {
-    logger("addDataProducer()");
+  async _addDataProducer() {
+    logger("_addDataProducer()");
 
     try {
       // Create chat DataProducer.
@@ -278,7 +477,7 @@ export class SimpleMediasoupPeer {
         logger('DataProducer "bufferedamountlow" event');
       });
     } catch (error) {
-      logger("addDataProducer() | failed:%o", error);
+      logger("_addDataProducer() | failed:%o", error);
       throw error;
     }
   }
@@ -290,64 +489,48 @@ export class SimpleMediasoupPeer {
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
-        const shouldConsume =
-          this.desiredPeerConnections.has(peerId) ||
-          this.options.autoConnect;
+        const shouldConsume = this.desiredPeerConnections.has(peerId) || this.options.autoConnect;
 
         if (shouldConsume) {
           const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
           logger("existing consumer:", consumer);
           if (!consumer) {
-            this.requestConsumer(peerId, producerId);
+            this._requestConsumer(peerId, producerId);
           }
         }
       }
       for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
-        const shouldConsume =
-          this.desiredPeerConnections.has(peerId) ||
-          this.options.autoConnect;
+        const shouldConsume = this.desiredPeerConnections.has(peerId) || this.options.autoConnect;
 
         if (shouldConsume) {
           const dataConsumer =
             this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
           logger("existing consumer:", dataConsumer);
           if (!dataConsumer) {
-            this.requestDataConsumer(peerId, dataProducerId);
+            this._requestDataConsumer(peerId, dataProducerId);
           }
         }
       }
     }
   }
 
-  requestConsumer(producingPeerId, producerId) {
+  async _requestConsumer(producingPeerId, producerId) {
     if (!this.consumers[producingPeerId]) {
       this.consumers[producingPeerId] = {};
     }
 
-    this.socket.request("mediasoupSignaling", {
+    let {data} = await this.socket.request("mediasoupSignaling", {
       type: "createConsumer",
       data: {
         producingPeerId,
         producerId,
       },
     });
+
+    this._createConsumer(data);
   }
 
-  requestDataConsumer(producingPeerId, producerId) {
-    if (!this.dataConsumers[producingPeerId]) {
-      this.dataConsumers[producingPeerId] = {};
-    }
-
-    this.socket.request("mediasoupSignaling", {
-      type: "createDataConsumer",
-      data: {
-        producingPeerId,
-        producerId,
-      },
-    });
-  }
-
-  async createConsumer(consumerInfo) {
+  async _createConsumer(consumerInfo) {
     const { peerId, producerId, id, kind, rtpParameters, type, appData, producerPaused } =
       consumerInfo;
 
@@ -392,7 +575,25 @@ export class SimpleMediasoupPeer {
     });
   }
 
-  async createDataConsumer(data) {
+  async _requestDataConsumer(producingPeerId, producerId) {
+    if (!this.dataConsumers[producingPeerId]) {
+      this.dataConsumers[producingPeerId] = {};
+    }
+
+const {data} = await this.socket.request("mediasoupSignaling", {
+      type: "createDataConsumer",
+      data: {
+        producingPeerId,
+        producerId,
+      },
+    });
+
+    this._createDataConsumer(data);
+  }
+
+
+
+  async _createDataConsumer(data) {
     const { peerId, dataProducerId, id, sctpStreamParameters, label, protocol, appData } = data;
 
     try {
@@ -473,16 +674,6 @@ export class SimpleMediasoupPeer {
         break;
       }
 
-      case "createConsumer": {
-        this.createConsumer(request.data);
-        break;
-      }
-
-      case "createDataConsumer": {
-        this.createDataConsumer(request.data);
-        break;
-      }
-
       case "consumerClosed": {
         logger("Server-side consumerClosed, closing client side consumer.");
         logger(request.data);
@@ -514,202 +705,6 @@ export class SimpleMediasoupPeer {
       },
     });
   }
-
-  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-  // public methods
-
-  async joinRoom(roomId) {
-    if (!roomId) {
-      console.log("Missing roomId.  Please enter a roomId when calling joinRoom().");
-      return;
-    }
-
-    if (this.currentRoomId === roomId) {
-      console.log("Already joined room: ", roomId);
-      return;
-    } else if (this.currentRoomId){
-      console.log(`Leaving room: ${this.currentRoomId}`)
-      // if we're in a different room, disconnect from all peers therein
-      this.socket.request("mediasoupSignaling", {
-        type: "leaveRoom",
-        data: { roomId: roomId },
-      });
-      for (const peerId in this.latestAvailableProducers) {
-        this.disconnectFromPeer(peerId);
-        this.callEventCallback("peerDisconnection", { peerId });
-      }
-      this.latestAvailableProducers = {};
-    }
-
-    // finally, join the new room
-    await this.socket.request("mediasoupSignaling", {
-      type: "joinRoom",
-      data: { roomId },
-    });
-    this.currentRoomId = roomId;
-    console.log(`Connected to room with ID ${roomId}`);
-  }
-
-  async addStream({ stream, customEncodings, customData }) {
-    stream.getVideoTracks().forEach((track) => {
-      this._addTrack({
-        track,
-        customEncodings,
-        appData: { customData: customData, streamID: stream.id },
-      });
-    });
-    stream.getAudioTracks().forEach((track) => {
-      this._addTrack({
-        track,
-        customEncodings,
-        appData: { customData: customData, streamID: stream.id },
-      });
-    });
-
-    // monitor tracks added to the stream, and add / remove them as needed
-    stream.addEventListener("addtrack", (event) => {
-      const { track } = event;
-      this._addTrack({
-        track,
-        customEncodings,
-        appData: { customData: customData, streamID: stream.id },
-      });
-    });
-
-    stream.addEventListener("removetrack", (event) => {
-      const { track } = event;
-      this.removeTrack(track);
-    });
-  }
-
-  async removeStream() {
-    stream.getVideoTracks().forEach((track) => {
-      this.removeTrack(track);
-    });
-    stream.getAudioTracks().forEach((track) => {
-      this.removeTrack(track);
-    });
-  }
-
-  async addTrack({ track, customEncodings, customData }) {
-    this._addTrack({ track, customEncodings, appData: { customData } });
-  }
-
-  async removeTrack(track) {
-    if (this.producers[track.id]) {
-      const producer = this.producers[track.id];
-      this.closeProducer(producer);
-      logger(`Removing ${track.kind} track with ID ${track.id}`);
-    } else {
-      logger(`Could not find track: ${track}`);
-    }
-  }
-
-  /*
-  add a callback for a given event
-  */
-  on(event, callback) {
-    if (this.publiclyExposedEvents.has(event)) {
-      logger(`Setting ${event} callback.`);
-      this.userDefinedCallbacks[event] = callback;
-    } else {
-      console.error(`Whoops!  No ${event} event exists.`);
-    }
-  }
-
-  /*
-  connect to a given peer
-  */
-  connectToPeer(otherPeerId) {
-    logger("Attempting to connect to peer", otherPeerId);
-    this.desiredPeerConnections.add(otherPeerId);
-
-    for (const producerId in this.latestAvailableProducers[otherPeerId]) {
-      const existingConsumer =
-        this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
-      logger("existingConsumer:", existingConsumer);
-      if (!existingConsumer) {
-        this.requestConsumer(otherPeerId, producerId);
-      }
-    }
-  }
-
-  /*
-  disconnect from a given peer
-  */
-  disconnectFromPeer(otherPeerId) {
-    for (let producerId in this.consumers[otherPeerId]) {
-      const consumer = this.consumers[otherPeerId][producerId];
-      this.closeConsumer(consumer);
-    }
-    delete this.consumers[otherPeerId];
-    this.desiredPeerConnections.delete(otherPeerId);
-  }
-
-  /*
-  pause all tracks from a given peer
-  */
-  async pausePeer(otherPeerId) {
-    const consumers = this.consumers[otherPeerId];
-
-    for (const producerId in consumers) {
-      const consumer = consumers[producerId];
-
-      if (!consumer) continue;
-      if (!consumer.paused) {
-        logger("Pausing consumer!");
-
-        await this.socket.request("mediasoupSignaling", {
-          type: "pauseConsumer",
-          data: {
-            producerId: consumer.producerId,
-          },
-        });
-        consumer.pause();
-      }
-    }
-  }
-
-  /*
-  resume all tracks from a given peer
-  */
-  async resumePeer(otherPeerId) {
-    const consumers = this.consumers[otherPeerId];
-
-    for (const producerId in consumers) {
-      const consumer = consumers[producerId];
-
-      if (!consumer) continue;
-      if (consumer.paused) {
-        logger("Resuming consumer!");
-        await this.socket.request("mediasoupSignaling", {
-          type: "resumeConsumer",
-          data: {
-            producerId: consumer.producerId,
-          },
-        });
-        consumer.resume();
-      }
-    }
-  }
-
-  /*
-  send data to all peers in room (if connected)
-  */
-  send(data) {
-    try {
-      this.producers["data"].send(data);
-    } catch (error) {
-      logger("DataProducer.send() failed:%o", error);
-
-      throw error;
-    }
-  }
-
-  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-  //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
-  // Initial Setup
 
   setupMediasoupDevice() {
     try {

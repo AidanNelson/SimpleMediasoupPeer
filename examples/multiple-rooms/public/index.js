@@ -112,16 +112,18 @@ async function sendCamera() {
     await startCamera();
   }
 
-  const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
+  mediasoupPeer.addStream(localStream);
 
-  if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "video");
-  }
+  // const videoTrack = localStream.getVideoTracks()[0];
+  // const audioTrack = localStream.getAudioTracks()[0];
 
-  if (audioTrack) {
-    mediasoupPeer.addTrack(audioTrack, "audio");
-  }
+  // if (videoTrack) {
+  //   mediasoupPeer.addTrack(videoTrack, "video");
+  // }
+
+  // if (audioTrack) {
+  //   mediasoupPeer.addTrack(audioTrack, "audio");
+  // }
 }
 
 async function startCamera() {
