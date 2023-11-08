@@ -1,6 +1,6 @@
 {
   "name": "simple-mediasoup-peer-client",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Client code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
   "contributors": [
     "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
@@ -26,8 +26,7 @@
     "@swc/helpers": "^0.3.3",
     "browserlist": "^1.0.1",
     "debug": "^4.3.4",
-    "mediasoup": "^3.12.6",
-    "mediasoup-client": "^3.6.43",
+    "mediasoup-client": "^3.7.0",
     "regenerator-runtime": "^0.13.9",
     "socket.io-client": "^4.7.1"
   },
