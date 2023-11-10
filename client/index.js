@@ -232,7 +232,7 @@ export class SimpleMediasoupPeer {
     let producer;
 
     if (this.producers[label]) {
-      log(`Already producing ${label}! Swapping track!`);
+      logger(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });
       return;
     }
@@ -498,7 +498,7 @@ export class SimpleMediasoupPeer {
           dataConsumer.sctpStreamParameters.streamId
         );
         this.callEventCallback("data", { from: dataConsumer.appData.peerId, data: message });
-        console.log("got message TODO call callback!", message);
+        logger("got message TODO call callback!", message);
       });
     } catch (error) {
       logger.error('"newDataConsumer" request failed:%o', error);
@@ -776,7 +776,7 @@ export class SimpleMediasoupPeer {
       "producedata",
       async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
         try {
-          console.log("trying to set up data producer");
+          logger("trying to set up data producer");
           // eslint-disable-next-line no-shadow
           const { id } = await this.socket.request("mediasoupSignaling", {
             type: "produceData",
@@ -789,7 +789,7 @@ export class SimpleMediasoupPeer {
             },
           });
 
-          console.log("set up data producer with id:", id);
+          logger("set up data producer with id:", id);
 
           callback({ id });
         } catch (error) {
