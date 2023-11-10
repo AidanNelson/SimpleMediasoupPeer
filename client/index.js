@@ -285,7 +285,14 @@ export class SimpleMediasoupPeer {
     });
 
     producer.on("trackended", async () => {
-      logger("track ended");
+      logger("Track ended.  Closing producer");
+      await producer.close();
+      producer = null;
+    });
+
+
+    producer.observer.on('close', async () => {
+      console.log("Producer closed.  Closing server-side producer.");
       try {
         await this.socket.request("mediasoupSignaling", {
           type: "closeProducer",
@@ -296,11 +303,9 @@ export class SimpleMediasoupPeer {
       } catch (err) {
         logError(err);
       }
-
-      await producer.close();
-
       producer = null;
-    });
+    })
+
 
     this.producers[label] = producer;
   }
