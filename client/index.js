@@ -301,7 +301,7 @@ export class SimpleMediasoupPeer {
           },
         });
       } catch (err) {
-        logError(err);
+        logger(err);
       }
       producer = null;
     })
@@ -699,7 +699,7 @@ export class SimpleMediasoupPeer {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
-      logError(err);
+      logger(err);
     }
   }
 
