@@ -231,7 +231,7 @@ export class SimpleMediasoupPeer {
   async addProducer(track, label, broadcast, customEncodings) {
     let producer;
 
-    if (this.producers[label]) {
+    if (this.producers[label] && !this.producers[label].closed) {
       logger(`Already producing ${label}! Swapping track!`);
       this.producers[label].replaceTrack({ track });
       return;
@@ -290,8 +290,7 @@ export class SimpleMediasoupPeer {
       producer = null;
     });
 
-
-    producer.observer.on('close', async () => {
+    producer.observer.on("close", async () => {
       console.log("Producer closed.  Closing server-side producer.");
       try {
         await this.socket.request("mediasoupSignaling", {
@@ -304,8 +303,8 @@ export class SimpleMediasoupPeer {
         logger(err);
       }
       producer = null;
-    })
-
+      delete this.producers[label];
+    });
 
     this.producers[label] = producer;
   }
