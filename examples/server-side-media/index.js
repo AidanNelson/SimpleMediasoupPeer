@@ -77,18 +77,28 @@ function main() {
   setupSocketServer();
 
   // console.log(mediasoupManager);
-  setTimeout(async () => {
-    const transportInfo = await mediasoupManager.addServerSideBroadcaster();
-    // const proc = playVideoWithFFMPEG(
-    //   transportInfo.tuple.localPort,
-    //   transportInfo.rtcpTuple.localPort
-    // );
-    // console.log(proc);
-    playVideoWithFluentFFMPEG(
-        transportInfo.tuple.localPort,
-        transportInfo.rtcpTuple.localPort
-      );
-  }, 2000);
+  // setTimeout(async () => {
+  //   const transportInfo = await mediasoupManager.addServerSideBroadcaster();
+  //   // const proc = playVideoWithFFMPEG(
+  //   //   transportInfo.tuple.localPort,
+  //   //   transportInfo.rtcpTuple.localPort
+  //   // );
+  //   // console.log(proc);
+  //   playVideoWithFluentFFMPEG(
+  //       transportInfo.tuple.localPort,
+  //       transportInfo.rtcpTuple.localPort
+  //     );
+  // }, 2000);
+
+  setInterval(async () => {
+    let peers = mediasoupManager.peers;
+    for (let peerId in peers){
+      let producers = peers[peerId].producers;
+      for (let producerId in producers){
+        console.log(producers[producerId].appData);
+      }
+    }
+  },4000);
   // const streamingEndpoint = startFFMPEGSRTServer(
   //   transportInfo.tuple.localPort,
   //   transportInfo.rtcpTuple.localPort

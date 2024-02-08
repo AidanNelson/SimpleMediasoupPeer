@@ -13,8 +13,8 @@ let customAudioEncodings = [{ maxBitrate: 256000 }];
 async function startBroadcast() {
   let videoTrack = localCam.getVideoTracks()[0];
   mediasoupPeer.addTrack(videoTrack, "video-broadcast", true, customVideoEncodings);
-  let audioTrack = localCam.getAudioTracks()[0];
-  mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true, customAudioEncodings);
+  // let audioTrack = localCam.getAudioTracks()[0];
+  // mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true, customAudioEncodings);
 }
 
 async function main() {
