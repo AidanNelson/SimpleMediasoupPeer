@@ -1,7 +1,7 @@
 const express = require("express");
 const http = require("http");
 const childProcess = require("child_process");
-
+const ffmpeg = require('fluent-ffmpeg');
 const ip = require("ip");
 process.env.DEBUG = "SimpleMediasoupPeer*"; // show everything mediasoup related
 
@@ -79,11 +79,15 @@ function main() {
   // console.log(mediasoupManager);
   setTimeout(async () => {
     const transportInfo = await mediasoupManager.addServerSideBroadcaster();
-    const proc = playVideoWithFFMPEG(
-      transportInfo.tuple.localPort,
-      transportInfo.rtcpTuple.localPort
-    );
-    console.log(proc);
+    // const proc = playVideoWithFFMPEG(
+    //   transportInfo.tuple.localPort,
+    //   transportInfo.rtcpTuple.localPort
+    // );
+    // console.log(proc);
+    playVideoWithFluentFFMPEG(
+        transportInfo.tuple.localPort,
+        transportInfo.rtcpTuple.localPort
+      );
   }, 2000);
   // const streamingEndpoint = startFFMPEGSRTServer(
   //   transportInfo.tuple.localPort,
@@ -108,6 +112,35 @@ function getLatency(rttMillis) {
 // https://github.com/Haivision/srt/issues/703
 function calc_rcv_buf_bytes(rtt_ms, bps, latency_ms) {
   return ((latency_ms + rtt_ms / 2) * bps) / 1000 / 8;
+}
+
+function playVideoWithFluentFFMPEG(plainTransportPort, plainTransportRTCPPort, srtPort, rttMillis){
+  // const url = ip.address();
+  // const port = nextSRTPort++;
+  // const streamingEndpoint = `srt://${url}:${port}`;
+  // console.log(`Starting FFMPEG child process. Start streaming to ${streamingEndpoint}`);
+
+  const rtpEndpoint = `rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`;
+  ffmpeg()
+    .input('test.mp4')
+    .videoCodec('libx264')
+    .noAudio()
+    .outputOptions([
+      '-f rtp',            // Output format RTP
+      '-payload_type 112',  // Payload type (adjust as needed)
+      '-ssrc 22222222',    // SSRC value (adjust as needed)
+    ])
+    .output(rtpEndpoint)
+    .on('error', function(err) {
+      console.log('An error occurred: ' + err.message);
+    })
+    .on('end', function() {
+      console.log('Processing finished !');
+    })
+    .on("data", (data) => {
+      console.log(data.toString());
+    })
+    .run()
 }
 
 function playVideoWithFFMPEG(plainTransportPort, plainTransportRTCPPort, srtPort, rttMillis) {
@@ -188,8 +221,8 @@ function playVideoWithFFMPEG(plainTransportPort, plainTransportRTCPPort, srtPort
     // "0",
 
     // for shrinking output size by 2
-    // "-vf",
-    // "scale=iw/2:-2",
+    "-vf",
+    "scale=iw/4:-4",
 
     "-f",
     "tee",
