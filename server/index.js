@@ -167,6 +167,20 @@ class SimpleMediasoupPeerServer {
         }
       }
     }
+    if (this.serverSideBroadcaster) {
+      syncData["serverSideBroadcaster"] = { producers: {}, dataProducers: {} };
+      for (const producerId in this.serverSideBroadcaster.producers) {
+        let peerRouterIndex = this.serverSideBroadcaster.routerIndex;
+        const producer = this.serverSideBroadcaster.producers[producerId][peerRouterIndex];
+        syncData["serverSideBroadcaster"].producers[producerId] = producer.appData;
+      }
+      for (const dataProducerId in this.serverSideBroadcaster.dataProducers) {
+        let peerRouterIndex = this.serverSideBroadcaster.routerIndex;
+        const dataProducer =
+          this.serverSideBroadcaster.dataProducers[dataProducerId][peerRouterIndex];
+        syncData["serverSideBroadcaster"].dataProducers[dataProducerId] = dataProducer.appData;
+      }
+    }
     // for (const peerId in this.peers) {
     //   if (this.rooms[roomId].has(peerId)) {
     //     syncData[peerId] = {};
@@ -490,11 +504,7 @@ class SimpleMediasoupPeerServer {
     automatically get the corresponding producer or create a pipe producer if needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(
-    consumingPeerId,
-    producingPeerId,
-    producerId
-  ) {
+  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
     let existingConsumer = this.peers[consumingPeerId].consumers[producerId];
 
     if (existingConsumer) {
@@ -839,7 +849,7 @@ class SimpleMediasoupPeerServer {
 
   // adds a broadcaster on the server side and spits out the parameters
   // can be used for RTMP / SRT ingestions on server side
-  async addServerSideBroadcaster() {
+  async addServerSideBroadcaster(roomId) {
     const producingPeerId = "serverSideBroadcaster";
 
     this.peers["serverSideBroadcaster"] = {
@@ -847,7 +857,9 @@ class SimpleMediasoupPeerServer {
       transports: {},
       producers: {},
       consumers: {},
+      room: roomId,
     };
+    this.serverSideBroadcaster = this.peers["serverSideBroadcaster"];
     // console.log(this.peers);
     // console.log("routers:", this.routers);
     const r = this.getRouterForPeer("serverSideBroadcaster");
@@ -945,9 +957,8 @@ class SimpleMediasoupPeerServer {
 
     // add producer to the peer object
     this.peers[producingPeerId].producers[producer.id] = {};
-    this.peers[producingPeerId].producers[producer.id][
-      this.peers[producingPeerId].routerIndex
-    ] = producer;
+    this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
+      producer;
 
     this.broadcastProducer(producingPeerId, producer.id);
 
