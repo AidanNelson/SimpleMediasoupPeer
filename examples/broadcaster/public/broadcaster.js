@@ -3,11 +3,7 @@ let mediasoupPeer;
 let localCam;
 
 // custom encodings
-let customVideoEncodings = [
-  { scaleResolutionDownBy: 4, maxBitrate: 500000 },
-  { scaleResolutionDownBy: 2, maxBitrate: 1000000 },
-  { scaleResolutionDownBy: 1, maxBitrate: 5000000 },
-];
+let customVideoEncodings = [{ scaleResolutionDownBy: 1, maxBitrate: 500000 }];
 let customAudioEncodings = [{ maxBitrate: 256000 }];
 
 async function startBroadcast() {
@@ -20,13 +16,8 @@ async function startBroadcast() {
 async function main() {
   console.log("~~~~~~~~~~~~~~~~~");
 
-  socket = io();
-
-  socket.on("connect", () => {
-    console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
-  });
-
-  mediasoupPeer = new SimpleMediasoupPeer(socket);
+  mediasoupPeer = new SimpleMediasoupPeer();
+  mediasoupPeer.joinRoom("broadcastRoom123");
 
   await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   getDevices();
@@ -72,8 +63,7 @@ function gotDevices(deviceInfos) {
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
     if (deviceInfo.kind === "audioinput") {
-      option.text =
-        deviceInfo.label || `microphone ${audioInputSelect.length + 1}`;
+      option.text = deviceInfo.label || `microphone ${audioInputSelect.length + 1}`;
       audioInputSelect.appendChild(option);
     } else if (deviceInfo.kind === "videoinput") {
       option.text = deviceInfo.label || `camera ${videoInputSelect.length + 1}`;
@@ -82,9 +72,7 @@ function gotDevices(deviceInfos) {
   }
   selectors.forEach((select, selectorIndex) => {
     if (
-      Array.prototype.slice
-        .call(select.childNodes)
-        .some((n) => n.value === values[selectorIndex])
+      Array.prototype.slice.call(select.childNodes).some((n) => n.value === values[selectorIndex])
     ) {
       select.value = values[selectorIndex];
     }
@@ -112,11 +100,7 @@ function gotStream(stream) {
 }
 
 function handleError(error) {
-  console.log(
-    "navigator.MediaDevices.getUserMedia error: ",
-    error.message,
-    error.name
-  );
+  console.log("navigator.MediaDevices.getUserMedia error: ", error.message, error.name);
 }
 
 async function startStream() {

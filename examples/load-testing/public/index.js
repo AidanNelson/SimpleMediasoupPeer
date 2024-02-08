@@ -1,5 +1,3 @@
-let socket;
-let clients = {};
 let mediasoupPeer;
 let localStream;
 let localScreenshareStream;
@@ -12,43 +10,16 @@ let userMediaConstraints = {
   },
 };
 
+function addPeer({ peerId }) {
+  console.log("Client conencted: ", peerId);
 
-function setupSocketConnection() {
-  socket = io("localhost:5000", {
-    path: "/socket.io",
-  });
-
-  socket.on("connect", () => {
-    console.log("Socket ID: ", socket.id); // x8WIv7-mJelg7on_ALbx
-  });
-
-  socket.on("clients", (ids) => {
-    console.log("Got initial clients!");
-    for (let i = 0; i < ids.length; i++) {
-      addPeer(ids[i]);
-    }
-  });
-
-  socket.on("clientConnected", (id) => {
-    addPeer(id);
-  });
-
-  socket.on("clientDisconnected", (id) => {
-    removePeer(id);
-  });
+  addPeerElements(peerId);
 }
 
-function addPeer(id) {
-  console.log("Client conencted: ", id);
-  clients[id] = {};
-  addPeerElements(id);
-}
-
-function removePeer(id) {
-  console.log("Client disconencted:", id);
-  const peerEl = document.getElementById(id + "_container");
+function removePeer({ peerId }) {
+  console.log("Client disconencted:", peerId);
+  const peerEl = document.getElementById(peerId + "_container");
   if (peerEl) peerEl.remove();
-  delete clients[id];
 }
 
 // create a <div> for each peer
@@ -61,7 +32,6 @@ function addPeerElements(id) {
   const titleEl = document.createElement("p");
   titleEl.innerText = "Client " + id + " - ";
   headerEl.appendChild(titleEl);
-
 
   peerEl.appendChild(headerEl);
   document.getElementById("peerContainer").appendChild(peerEl);
@@ -180,26 +150,23 @@ function createHTMLElementsFromTrack(track, id, label) {
   }
 }
 
-function gotTrack(track, id, label) {
-  console.log(`Got track with label ${label} from ${id}.   Kind: ${track.kind}`);
-  createHTMLElementsFromTrack(track, id, label);
-};
+function gotTrack({ track, peerId, label }) {
+  console.log(`Got track with label ${label} from ${peerId}.   Kind: ${track.kind}`);
+  createHTMLElementsFromTrack(track, peerId, label);
+}
 
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
-  setupSocketConnection();
 
-  mediasoupPeer = new SimpleMediasoupPeer(socket);
+  mediasoupPeer = new SimpleMediasoupPeer();
+  mediasoupPeer.joinRoom("loadTestingRoom123");
 
   window.onload = sendCamera;
-  setInterval(() => {
-    for (let id in clients) {
-      connectToPeer(id);
-    }
-  },5000);
 
   // create an on-track listener
   mediasoupPeer.on("track", gotTrack);
+  mediasoupPeer.on("peerConnection", addPeer);
+  mediasoupPeer.on("peerDisconnection", removePeer);
 }
 
 main();
