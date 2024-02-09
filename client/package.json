@@ -11,20 +11,12 @@
   },
   "source": "index.js",
   "default": "dist/SimpleMediasoupPeer.js",
-  "main": "dist/main.js",
-  "module": "dist/module.js",
-  "targets": {
-    "default": {
-      "context": "browser",
-      "outputFormat": "global"
-    }
-  },
-  "browserslist": "> 0.5%, last 2 versions, not dead",
+  "main": "dist/SimpleMediasoupPeer.js",
   "scripts": {
     "build": "webpack --config webpack.config.js"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "debug": "^4.3.4",
     "mediasoup-client": "^3.7.2",
