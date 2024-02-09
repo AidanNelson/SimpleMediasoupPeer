@@ -11,29 +11,25 @@
   },
   "source": "index.js",
   "default": "dist/SimpleMediasoupPeer.js",
+  "main": "dist/main.js",
+  "module": "dist/module.js",
   "targets": {
-    "default": {}
+    "default": {
+      "context": "browser",
+      "outputFormat": "global"
+    }
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "build": "parcel build --no-source-maps",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node localDevelopmentServer.js & parcel watch "
+    "build": "webpack --config webpack.config.js"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@swc/helpers": "^0.3.3",
-    "browserlist": "^1.0.1",
+  "devDependencies": {
     "debug": "^4.3.4",
     "mediasoup-client": "^3.7.2",
-    "regenerator-runtime": "^0.13.9",
-    "socket.io-client": "^4.7.4"
-  },
-  "devDependencies": {
-    "buffer": "^6.0.3",
-    "express": "^4.18.2",
-    "parcel": "^2.6.2",
-    "process": "^0.11.10"
+    "socket.io-client": "^4.7.4",
+    "webpack": "^5.90.1",
+    "webpack-cli": "^5.1.4"
   }
 }
