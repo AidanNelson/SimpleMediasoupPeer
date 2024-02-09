@@ -15,7 +15,7 @@
     "start": "nodemon index.js"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "awaitqueue": "^3.0.2",
     "debug": "^4.3.4",
