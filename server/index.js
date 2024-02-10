@@ -69,7 +69,12 @@ class SimpleMediasoupPeerServer {
     };
     this.options = Object.assign(defaultOptions, options);
 
-    this.initializeMediasoupWorkersAndRouters();
+    // do initialization in an async function
+    this.init();
+  }
+
+  async init() {
+    await this.initializeMediasoupWorkersAndRouters();
 
     this.currentPeerRouterIndex = -1;
 
@@ -77,11 +82,9 @@ class SimpleMediasoupPeerServer {
     // requesting the same thing:
     this.queue = new AwaitQueue();
 
+    // keep track of peers and rooms
     this.peers = {};
-    // we store a list of room ids separately from the socket.io adapter's list
-    // because socket.io keeps a single room for each socket plus any
-    // created rooms
-    this.rooms = new Set();
+    this.rooms = {};
 
     if (this.options.io) {
       this.io = this.options.io;
@@ -90,18 +93,12 @@ class SimpleMediasoupPeerServer {
       this.io.listen(this.options.port);
       logger("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
     }
+
     this.io.on("connection", (socket) => {
       logger("Socket joined:", socket.id);
       this.addPeer(socket);
 
       socket.on("disconnect", () => {
-        const roomId = this.peers[socket.id].room;
-        if (roomId) {
-          socket.to(roomId).emit("mediasoupSignaling", {
-            type: "peerDisconnected",
-            data: socket.id,
-          });
-        }
         this.removePeer(socket.id);
       });
 
@@ -117,12 +114,12 @@ class SimpleMediasoupPeerServer {
 
   sendSyncDataToAllRooms() {
     // const allRooms = this.io.of("/").adapter.rooms;
-    const allRooms = this.rooms;
+    const allRooms = Object.keys(this.rooms);
     // logger("Sending sync data to all rooms:", allRooms);
     for (const roomId of allRooms) {
       const syncData = this.getSyncDataForRoom(roomId);
       if (!syncData) {
-        this.rooms.delete(roomId);
+        delete this.rooms[roomId];
       } else {
         this.io.to(roomId).emit("mediasoupSignaling", {
           type: "availableProducers",
@@ -145,7 +142,8 @@ class SimpleMediasoupPeerServer {
     */
   getSyncDataForRoom(roomId) {
     let syncData = {};
-    const peersInRoom = this.io.sockets.adapter.rooms.get(roomId);
+    const peersInRoom = this.rooms[roomId];
+    // const peersInRoom = this.io.sockets.adapter.rooms.get(roomId);
     // if the room no longer exists, return an empty object
     // TODO cleanup rooms as peers exit
     if (!peersInRoom) {
@@ -215,18 +213,16 @@ class SimpleMediasoupPeerServer {
     };
   }
   removePeer(id) {
+    logger(`Removing and cleaning up peer ${id}`);
     const peer = this.peers[id];
+
+    this.removePeerFromRoom({ peerId: id });
 
     // close transports
     for (const transportId in peer.transports) {
       logger("Closing transport");
       peer.transports[transportId].close();
     }
-
-    // remove from rooms
-    // if (peer.room) {
-    //   this.rooms[peer.room].delete(id);
-    // }
 
     // remove from this.peers
     delete this.peers[id];
@@ -247,50 +243,13 @@ class SimpleMediasoupPeerServer {
   async handleSocketRequest(id, request, callback) {
     switch (request.type) {
       case "joinRoom": {
-        logger("join room request");
-        const socket = this.peers[id].socket;
-        const roomId = request.data.roomId;
-
-        const existingRoomId = this.peers[id].room;
-        if (existingRoomId) {
-          // we only support one room at a time (for now)
-          socket.leave(existingRoomId);
-        }
-
-        if (!this.rooms.has(roomId)) {
-          // TODO clean up rooms after sockets have left
-          this.rooms.add(roomId);
-        }
-
-        socket.join(roomId);
-
-        this.peers[socket.id].room = roomId;
-
-        // tell new peer about the existing peers (and their available producers)
-        const existingPeers = this.io.sockets.adapter.rooms.get(roomId);
-        logger("existing peers in room ", roomId, ": ", existingPeers);
-
-        const syncData = this.getSyncDataForRoom(roomId);
-        socket.emit("mediasoupSignaling", {
-          type: "availableProducers",
-          data: syncData,
-        });
-
+        this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
         callback();
         break;
       }
 
       case "leaveRoom": {
-        logger("leave room request");
-        const socket = this.peers[id].socket;
-        const roomId = request.data.roomId;
-
-        const existingRoomId = this.peers[id].room;
-        if (existingRoomId === roomId) {
-          socket.leave(existingRoomId);
-          this.peerd[id].room = null;
-        }
-
+        this.removePeerFromRoom({ peerId: id });
         callback();
         break;
       }
@@ -341,7 +300,9 @@ class SimpleMediasoupPeerServer {
       }
 
       case "createConsumer": {
-        logger("Connecting peer to other peer!");
+        logger(
+          `Peer ${id} requesting producer ${request.data.producerId} from peer ${request.data.producingPeerId}`
+        );
         let consumer = await this.getOrCreateConsumerForPeer(
           id,
           request.data.producingPeerId,
@@ -464,6 +425,70 @@ class SimpleMediasoupPeerServer {
     }
   }
 
+  addPeerToRoom({ peerId, roomId }) {
+    logger(`Adding peer ${peerId} to join room ${roomId}.`);
+
+    const existingRoomId = this.peers[peerId].room;
+    if (existingRoomId) {
+      logger(`Peer is already in room ${existingRoomId}.`);
+      this.removePeerFromRoom({ peerId });
+    }
+
+    // if we haven't seen this room before, create it
+    if (!this.rooms.hasOwnProperty(roomId)) {
+      this.rooms[roomId] = [];
+    }
+
+    const socket = this.peers[peerId].socket;
+
+    // tell new peer about the existing peers (and their available producers)
+    // const existingPeers = this.io.sockets.adapter.rooms.get(roomId);
+    const existingPeerIds = structuredClone(this.rooms[roomId]);
+    logger("existing peers in room ", roomId, ": ", existingPeerIds);
+
+    this.rooms[roomId].push(socket.id);
+    this.peers[socket.id].room = roomId;
+
+    // const syncData = this.getSyncDataForRoom(roomId);
+    // socket.emit("mediasoupSignaling", {
+    //   type: "availableProducers",
+    //   data: syncData,
+    // });
+
+    // tell everyone else that this peer just joined
+    existingPeerIds.forEach((peerId) => {
+      this.peers[peerId]?.socket.emit("mediasoupSignaling", {
+        type: "peerConnection",
+        data: [peerId],
+      });
+    });
+    // tell this peer about everyone else
+    socket.emit("mediasoupSignaling", {
+      type: "peerConnection",
+      data: existingPeerIds,
+    });
+  }
+
+  removePeerFromRoom({ peerId }) {
+    const roomId = this.peers[peerId].room;
+    logger(`Peer with id ${peerId} leaving room ${roomId}.`);
+
+    if (this.rooms[roomId]) {
+      this.rooms[roomId] = this.rooms[roomId].filter((roomPeerId) => roomPeerId !== peerId);
+    }
+
+    this.peers[peerId].room = null;
+
+    // inform remaining peers
+    const remainingRoomPeerIds = this.rooms[roomId];
+    remainingRoomPeerIds?.forEach((otherPeerId) => {
+      this.peers[otherPeerId]?.socket.emit("mediasoupSignaling", {
+        type: "peerDisconnection",
+        data: [peerId],
+      });
+    });
+  }
+
   getTransportForPeer(id, transportId) {
     return this.peers[id].transports[transportId];
   }
@@ -508,6 +533,9 @@ class SimpleMediasoupPeerServer {
         // on the consuming peer's router:
         let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
         // logger(this.peers[producingPeerId].producers);
+        console.log(
+          `looking for producer id ${producerId} from ${producingPeerId} in router index ${consumingPeerRouterIndex}`
+        );
         let producerOrPipeProducer =
           this.peers[producingPeerId].producers[producerId][consumingPeerRouterIndex];
 

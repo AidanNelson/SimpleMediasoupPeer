@@ -143,7 +143,7 @@ class SimpleMediasoupPeer {
     if (this.currentRoomId === roomId) {
       logger("Already joined room: ", roomId);
       return;
-    } else {
+    } else if (this.currentRoomId) {
       // if we're in a different room, disconnect from all peers therein
       this.socket.request("mediasoupSignaling", {
         type: "leaveRoom",
@@ -538,6 +538,11 @@ class SimpleMediasoupPeer {
 
   async handleSocketMessage(request) {
     switch (request.type) {
+      case "peerConnection": {
+        console.log("peer connection", request.data);
+        break;
+      }
+
       case "availableProducers": {
         this.updatePeersFromSyncData(request.data);
         break;
