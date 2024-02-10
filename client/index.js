@@ -389,6 +389,7 @@ class SimpleMediasoupPeer {
   }
 
   requestConsumer(producingPeerId, producerId) {
+    console.log(`Requesting consumer for producer ${producerId} from peer ${producingPeerId}`);
     if (!this.consumers[producingPeerId]) {
       this.consumers[producingPeerId] = {};
     }
@@ -607,7 +608,7 @@ class SimpleMediasoupPeer {
     logger("Attempting to connect to peer", otherPeerId);
     this.desiredPeerConnections.add(otherPeerId);
 
-    for (const producerId in this.latestAvailableProducers[otherPeerId]) {
+    for (const producerId in this.latestAvailableProducers[otherPeerId].producers) {
       const existingConsumer =
         this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
       logger("existingConsumer:", existingConsumer);
