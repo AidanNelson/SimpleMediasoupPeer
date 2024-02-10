@@ -13,7 +13,8 @@
   "default": "dist/SimpleMediasoupPeer.js",
   "main": "dist/SimpleMediasoupPeer.js",
   "scripts": {
-    "build": "webpack --config webpack.config.js"
+    "build": "webpack --config webpack.config.js",
+    "dev": "webpack-dev-server --open"
   },
   "author": "",
   "license": "MIT",
@@ -22,6 +23,7 @@
     "mediasoup-client": "^3.7.2",
     "socket.io-client": "^4.7.4",
     "webpack": "^5.90.1",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
   }
 }
