@@ -439,21 +439,9 @@ class SimpleMediasoupPeerServer {
       this.rooms[roomId] = [];
     }
 
-    const socket = this.peers[peerId].socket;
-
     // tell new peer about the existing peers (and their available producers)
-    // const existingPeers = this.io.sockets.adapter.rooms.get(roomId);
     const existingPeerIds = structuredClone(this.rooms[roomId]);
     logger("existing peers in room ", roomId, ": ", existingPeerIds);
-
-    this.rooms[roomId].push(socket.id);
-    this.peers[socket.id].room = roomId;
-
-    // const syncData = this.getSyncDataForRoom(roomId);
-    // socket.emit("mediasoupSignaling", {
-    //   type: "availableProducers",
-    //   data: syncData,
-    // });
 
     // tell everyone else that this peer just joined
     existingPeerIds.forEach((peerId) => {
@@ -462,31 +450,43 @@ class SimpleMediasoupPeerServer {
         data: [peerId],
       });
     });
+
+    // add peer to this room:
+    this.rooms[roomId].push(peerId);
+    this.peers[peerId].room = roomId;
+
     // tell this peer about everyone else
-    socket.emit("mediasoupSignaling", {
-      type: "peerConnection",
-      data: existingPeerIds,
-    });
+    if (existingPeerIds.length > 0) {
+      this.peers[peerId].socket.emit("mediasoupSignaling", {
+        type: "peerConnection",
+        data: existingPeerIds,
+      });
+    }
   }
 
   removePeerFromRoom({ peerId }) {
     const roomId = this.peers[peerId].room;
     logger(`Peer with id ${peerId} leaving room ${roomId}.`);
 
-    if (this.rooms[roomId]) {
-      this.rooms[roomId] = this.rooms[roomId].filter((roomPeerId) => roomPeerId !== peerId);
-    }
+    if (!this.rooms[roomId]) return;
 
+    // remove this peer from room
+    this.rooms[roomId] = this.rooms[roomId].filter((roomPeerId) => roomPeerId !== peerId);
     this.peers[peerId].room = null;
 
     // inform remaining peers
     const remainingRoomPeerIds = this.rooms[roomId];
-    remainingRoomPeerIds?.forEach((otherPeerId) => {
+    remainingRoomPeerIds.forEach((otherPeerId) => {
       this.peers[otherPeerId]?.socket.emit("mediasoupSignaling", {
         type: "peerDisconnection",
         data: [peerId],
       });
     });
+
+    if (remainingRoomPeerIds.length === 0) {
+      logger(`Room ${roomId} empty.  Removing it.`);
+      delete this.rooms[roomId];
+    }
   }
 
   getTransportForPeer(id, transportId) {

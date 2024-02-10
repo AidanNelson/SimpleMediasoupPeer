@@ -514,22 +514,22 @@ class SimpleMediasoupPeer {
   // TODO use more modern and efficient approaches to this
   updatePeersFromSyncData(syncData) {
     // check for new peers
-    for (const peerId in syncData) {
-      if (!this.latestAvailableProducers[peerId]) {
-        if (peerId !== this.socket.id) {
-          this.callEventCallback("peerConnection", { peerId });
-        }
-      }
-    }
+    // for (const peerId in syncData) {
+    //   if (!this.latestAvailableProducers[peerId]) {
+    //     if (peerId !== this.socket.id) {
+    //       this.callEventCallback("peerConnection", { peerId });
+    //     }
+    //   }
+    // }
 
     // check for disconnections
-    for (const peerId in this.latestAvailableProducers) {
-      if (!syncData[peerId]) {
-        if (peerId !== this.socket.id) {
-          this.callEventCallback("peerDisconnection", { peerId });
-        }
-      }
-    }
+    // for (const peerId in this.latestAvailableProducers) {
+    //   if (!syncData[peerId]) {
+    //     if (peerId !== this.socket.id) {
+    //       this.callEventCallback("peerDisconnection", { peerId });
+    //     }
+    //   }
+    // }
 
     // finally update the latestavailableproducers and connections
     this.latestAvailableProducers = syncData;
@@ -540,6 +540,17 @@ class SimpleMediasoupPeer {
     switch (request.type) {
       case "peerConnection": {
         console.log("peer connection", request.data);
+        request.data.forEach((peerId) => {
+          this.callEventCallback("peerConnection", { peerId });
+        });
+        break;
+      }
+
+      case "peerDisconnection": {
+        console.log("peer disonnection", request.data);
+        request.data.forEach((peerId) => {
+          this.callEventCallback("peerDisconnection", { peerId });
+        });
         break;
       }
 
