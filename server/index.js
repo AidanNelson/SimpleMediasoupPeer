@@ -115,7 +115,7 @@ class SimpleMediasoupPeerServer {
   sendSyncDataToAllRooms() {
     // const allRooms = this.io.of("/").adapter.rooms;
     const allRooms = Object.keys(this.rooms);
-    // logger("Sending sync data to all rooms:", allRooms);
+    logger("Sending sync data to all rooms:", allRooms);
     for (const roomId of allRooms) {
       const syncData = this.getSyncDataForRoom(roomId);
       if (!syncData) {
@@ -475,11 +475,32 @@ class SimpleMediasoupPeerServer {
     this.peers[peerId].room = null;
 
     // inform remaining peers
+    const producerIds = Object.keys(this.peers[peerId].producers);
+    const dataProducerIds = Object.keys(this.peers[peerId].dataProducers);
+
     const remainingRoomPeerIds = this.rooms[roomId];
     remainingRoomPeerIds.forEach((otherPeerId) => {
-      this.peers[otherPeerId]?.socket.emit("mediasoupSignaling", {
+      const otherPeer = this.peers[otherPeerId];
+      if (!otherPeer) return;
+
+      otherPeer.socket.emit("mediasoupSignaling", {
         type: "peerDisconnection",
         data: [peerId],
+      });
+
+      producerIds.forEach(async (pid) => {
+        const consumer = otherPeer.consumers[pid];
+        if (consumer) {
+          await consumer.close();
+          delete otherPeer.consumers[pid];
+        }
+      });
+      dataProducerIds.forEach(async (pid) => {
+        const consumer = otherPeer.dataConsumers[pid];
+        if (consumer) {
+          await consumer.close();
+          delete otherPeer.dataConsumers[pid];
+        }
       });
     });
 

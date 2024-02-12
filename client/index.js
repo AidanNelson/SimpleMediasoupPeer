@@ -82,6 +82,7 @@ class SimpleMediasoupPeer {
         this.options.socketClientOptions
       );
     }
+
     this.producers = {};
     this.consumers = {};
     this.dataConsumers = {};
@@ -144,16 +145,7 @@ class SimpleMediasoupPeer {
       logger("Already joined room: ", roomId);
       return;
     } else if (this.currentRoomId) {
-      // if we're in a different room, disconnect from all peers therein
-      this.socket.request("mediasoupSignaling", {
-        type: "leaveRoom",
-        data: { roomId: roomId },
-      });
-      for (const peerId in this.latestAvailableProducers) {
-        this.disconnectFromPeer(peerId);
-        this.callEventCallback("peerDisconnection", { peerId });
-      }
-      this.latestAvailableProducers = {};
+      this.leaveRoom({ roomId: this.currentRoomId });
     }
 
     // finally, join the new room
@@ -162,6 +154,20 @@ class SimpleMediasoupPeer {
       data: { roomId },
     });
     this.currentRoomId = roomId;
+  }
+
+  async leaveRoom({ roomId }) {
+    this.socket.request("mediasoupSignaling", {
+      type: "leaveRoom",
+      data: { roomId: roomId },
+    });
+
+    // disconnect from other peers in this room
+    for (const peerId in this.latestAvailableProducers) {
+      this.disconnectFromPeer(peerId);
+      this.callEventCallback("peerDisconnection", { peerId });
+    }
+    this.latestAvailableProducers = {};
   }
 
   callEventCallback(event, data) {
@@ -351,9 +357,9 @@ class SimpleMediasoupPeer {
   }
 
   ensureConnectedToDesiredPeerConnections() {
-    logger("ensure connections");
-    logger("latest available producers:", this.latestAvailableProducers);
-    logger("desired connections:", this.desiredPeerConnections);
+    console.log("ensure connections");
+    console.log("latest available producers:", this.latestAvailableProducers);
+    console.log("desired connections:", this.desiredPeerConnections);
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
@@ -555,6 +561,7 @@ class SimpleMediasoupPeer {
       }
 
       case "availableProducers": {
+        console.log("got data");
         this.updatePeersFromSyncData(request.data);
         break;
       }
@@ -623,6 +630,7 @@ class SimpleMediasoupPeer {
   connectToPeer(otherPeerId) {
     logger("Attempting to connect to peer", otherPeerId);
     this.desiredPeerConnections.add(otherPeerId);
+    console.log(this.latestAvailableProducers);
 
     for (const producerId in this.latestAvailableProducers[otherPeerId].producers) {
       const existingConsumer =
