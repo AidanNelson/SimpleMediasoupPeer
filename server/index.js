@@ -852,7 +852,7 @@ class SimpleMediasoupPeerServer {
 
   async consumeWithPlainTransport({ producingPeerId, producerId }) {
     const routerToUse = this.getRouterForPeer(producingPeerId);
-    const serverSideConsumerPeerId = "someRandomUUID";
+    const serverSideConsumerPeerId = "someRandomUUID" + Math.random().toString();
     this.peers[serverSideConsumerPeerId] = {
       routerIndex: routerToUse,
       transports: {},
@@ -903,43 +903,20 @@ class SimpleMediasoupPeerServer {
     // start ffmpeg process
     const useAudio = false;
     const useVideo = true;
-    const useH264 = false;
+    const useH264 = true;
 
     const cmdProgram = "ffmpeg"; // Found through $PATH
-    //  const cmdProgram = FFmpegStatic; // From package "ffmpeg-static"
 
     let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
     let cmdOutputPath = `${__dirname}/recording/output-ffmpeg-vp8.webm`;
     let cmdCodec = "";
     let cmdFormat = "-f webm -flags +global_header";
 
-    // Ensure correct FFmpeg version is installed
-    // const ffmpegOut = Process.execSync(cmdProgram + " -version", {
-    //   encoding: "utf8",
-    // });
-    // const ffmpegVerMatch = /ffmpeg version (\d+)\.(\d+)\.(\d+)/.exec(ffmpegOut);
-    // let ffmpegOk = false;
-    // if (ffmpegOut.startsWith("ffmpeg version git")) {
-    //   // Accept any Git build (it's up to the developer to ensure that a recent
-    //   // enough version of the FFmpeg source code has been built)
-    //   ffmpegOk = true;
-    // } else if (ffmpegVerMatch) {
-    //   const ffmpegVerMajor = parseInt(ffmpegVerMatch[1], 10);
-    //   if (ffmpegVerMajor >= 4) {
-    //     ffmpegOk = true;
-    //   }
-    // }
-
-    // if (!ffmpegOk) {
-    //   console.error("FFmpeg >= 4.0.0 not found in $PATH; please install it");
-    //   process.exit(1);
-    // }
-
     if (useAudio) {
       cmdCodec += " -map 0:a:0 -c:a copy";
     }
     if (useVideo) {
-      cmdCodec += " -map 0:v:0 -c:v copy";
+      cmdCodec += " -map 0:v:0 -c:v copy -s 1280x720";
 
       if (useH264) {
         cmdInputPath = `${__dirname}/recording/input-h264.sdp`;
@@ -956,8 +933,8 @@ class SimpleMediasoupPeerServer {
       "-nostdin",
       "-protocol_whitelist file,rtp,udp",
       // "-loglevel debug",
-      // "-analyzeduration 5M",
-      // "-probesize 5M",
+      "-analyzeduration 5M",
+      "-probesize 5M",
       "-fflags +genpts",
       `-i ${cmdInputPath}`,
       cmdCodec,

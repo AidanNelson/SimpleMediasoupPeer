@@ -10,4 +10,4 @@ a=fmtp:111 minptime=10;useinbandfec=1
 m=video 5006 RTP/AVPF 125
 a=rtcp:5007
 a=rtpmap:125 H264/90000
-a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f
+a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d0032
