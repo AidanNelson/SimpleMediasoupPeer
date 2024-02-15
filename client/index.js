@@ -54,7 +54,7 @@ import { io } from "socket.io-client";
 const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer");
 
-export class SimpleMediasoupPeer {
+class SimpleMediasoupPeer {
   constructor(options = {}) {
     const defaultOptions = {
       autoConnect: true,
@@ -852,4 +852,4 @@ export class SimpleMediasoupPeer {
   }
 }
 
-window.SimpleMediasoupPeer = SimpleMediasoupPeer;
+export { SimpleMediasoupPeer };
