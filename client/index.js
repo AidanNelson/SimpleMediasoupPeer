@@ -599,7 +599,6 @@ class SimpleMediasoupPeer {
 
   closeConsumer(consumer) {
     logger("Closing consumer:", consumer.id);
-    consumer.close();
     this.socket.request("mediasoupSignaling", {
       type: "closeConsumer",
       data: {
