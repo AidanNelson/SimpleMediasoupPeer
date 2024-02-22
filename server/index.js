@@ -118,13 +118,16 @@ class SimpleMediasoupPeerServer {
     logger("Sending sync data to all rooms:", allRooms);
     for (const roomId of allRooms) {
       const syncData = this.getSyncDataForRoom(roomId);
+      const peerIdsInRoom = this.rooms[roomId];
       if (!syncData) {
         delete this.rooms[roomId];
       } else {
-        this.io.to(roomId).emit("mediasoupSignaling", {
-          type: "availableProducers",
-          data: syncData,
-        });
+        peerIdsInRoom.forEach((pid) => {
+          this.peers[pid].socket.emit("mediasoupSignaling", {
+            type: "availableProducers",
+            data: syncData,
+          });
+        })
         logger("sending sync data to room", roomId, ":", syncData);
       }
     }
@@ -401,7 +404,7 @@ class SimpleMediasoupPeerServer {
           break;
         }
 
-        this.closeConsumer(consumer);
+        this.closeConsumer({peerId: id, consumer});
 
         callback();
 
@@ -496,7 +499,7 @@ class SimpleMediasoupPeerServer {
       producerIds.forEach(async (pid) => {
         const consumer = otherPeer.consumers[pid];
         if (consumer) {
-          this.closeConsumer(consumer);
+          this.closeConsumer({peerId: pid, consumer});
           // await consumer.close();
           // delete otherPeer.consumers[pid];
         }
@@ -711,7 +714,7 @@ class SimpleMediasoupPeerServer {
 
     consumer.on("producerclose", () => {
       logger("Producer closed! Closing server-side consumer!");
-      this.closeConsumer(consumer);
+      this.closeConsumer({peerId: consumingPeerId,consumer});
     });
 
     // consumer.on('producerpause', () => {
@@ -727,7 +730,7 @@ class SimpleMediasoupPeerServer {
     return consumer;
   }
 
-  async closeConsumer(consumer) {
+  async closeConsumer({peerId, consumer}) {
     //  close the server-side consumer
     await consumer.close();
 
@@ -741,7 +744,7 @@ class SimpleMediasoupPeerServer {
     });
 
     // delete reference to this consumer
-    delete this.peers[id].consumers[request.data.producerId];
+    delete this.peers[peerId].consumers[consumer.appData.peerId];
   }
 
   async createDataConsumer(consumingPeerId, producer) {
