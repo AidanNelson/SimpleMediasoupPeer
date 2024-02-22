@@ -163,10 +163,10 @@ class SimpleMediasoupPeer {
     });
 
     // disconnect from other peers in this room
-    for (const peerId in this.latestAvailableProducers) {
-      this.disconnectFromPeer(peerId);
-      this.callEventCallback("peerDisconnection", { peerId });
-    }
+    // for (const peerId in this.latestAvailableProducers) {
+    //   this.disconnectFromPeer(peerId);
+    //   this.callEventCallback("peerDisconnection", { peerId });
+    // }
     this.latestAvailableProducers = {};
   }
 

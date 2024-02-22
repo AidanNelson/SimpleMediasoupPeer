@@ -58,6 +58,9 @@ This peer has the following methods available:
 // join a room!
 peer.joinRoom("MyCoolRoomName");
 
+// leave a room
+peer.leaveRoom("MyCoolRoomName");
+
 // deal with incoming tracks
 peer.on("track", ({ track, peerId, label }) => {
     // do something with this new track
