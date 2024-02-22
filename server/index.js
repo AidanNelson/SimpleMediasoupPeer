@@ -474,7 +474,6 @@ class SimpleMediasoupPeerServer {
   }
 
   removePeerFromRoom({ peerId, roomId }) {
-    // const roomId = this.peers[peerId].room;
     logger(`Peer with id ${peerId} leaving room ${roomId}.`);
 
     if (!this.rooms[roomId]) return;
