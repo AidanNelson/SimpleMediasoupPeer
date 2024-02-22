@@ -452,8 +452,9 @@ class SimpleMediasoupPeerServer {
     logger("existing peers in room ", roomId, ": ", existingPeerIds);
 
     // tell everyone else that this peer just joined
-    existingPeerIds.forEach((peerId) => {
-      this.peers[peerId]?.socket.emit("mediasoupSignaling", {
+    existingPeerIds.forEach((existingPeerId) => {
+      console.log('telling',existingPeerId,'about new peer:',peerId);
+      this.peers[existingPeerId]?.socket.emit("mediasoupSignaling", {
         type: "peerConnection",
         data: [peerId],
       });
@@ -731,6 +732,7 @@ class SimpleMediasoupPeerServer {
   }
 
   async closeConsumer({peerId, consumer}) {
+    try {
     //  close the server-side consumer
     await consumer.close();
 
@@ -745,6 +747,9 @@ class SimpleMediasoupPeerServer {
 
     // delete reference to this consumer
     delete this.peers[peerId].consumers[consumer.appData.peerId];
+  } catch(err) {
+    console.log('closeConsumer error:',err);
+  }
   }
 
   async createDataConsumer(consumingPeerId, producer) {
