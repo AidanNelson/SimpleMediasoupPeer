@@ -4,7 +4,7 @@ Simple Mediasoup Peer provides a simple way to build real-time video and audio w
 
 ## Getting Started
 
-### Server-Side Setup
+### Server-Side Setup (Node.js)
 
 This library can be installed from npm (the node package manager).
 
@@ -21,7 +21,7 @@ new SimpleMediasoupPeerServer();
 
 You're done! 🙃 By default, this server will create a Mediasoup worker and router for every available CPU core. Working on an 8-core server, you'll have 8 Mediasoup workers and 8 Mediasoup routers available.
 
-### Client-Side Setup
+### Client-Side Setup (Browser)
 
 Add the client-side library to your code using a script tag:
 
