@@ -127,7 +127,7 @@ class SimpleMediasoupPeerServer {
             type: "availableProducers",
             data: syncData,
           });
-        })
+        });
         logger("sending sync data to room", roomId, ":", syncData);
       }
     }
@@ -215,7 +215,7 @@ class SimpleMediasoupPeerServer {
       dataConsumers: {},
     };
   }
-  removePeer(id) {
+  async removePeer(id) {
     logger(`Removing and cleaning up peer ${id}`);
     const peer = this.peers[id];
 
@@ -224,7 +224,7 @@ class SimpleMediasoupPeerServer {
     const existingRoomId = peer.room;
     if (existingRoomId) {
       logger(`Removing peer from room ${existingRoomId}.`);
-      this.removePeerFromRoom({ peerId: id, roomId: existingRoomId });
+      await this.removePeerFromRoom({ peerId: id, roomId: existingRoomId });
     }
 
     // close transports
@@ -404,7 +404,7 @@ class SimpleMediasoupPeerServer {
           break;
         }
 
-        this.closeConsumer({peerId: id, consumer});
+        this.closeConsumer({ peerId: id, consumer });
 
         callback();
 
@@ -453,7 +453,7 @@ class SimpleMediasoupPeerServer {
 
     // tell everyone else that this peer just joined
     existingPeerIds.forEach((existingPeerId) => {
-      console.log('telling',existingPeerId,'about new peer:',peerId);
+      console.log("telling", existingPeerId, "about new peer:", peerId);
       this.peers[existingPeerId]?.socket.emit("mediasoupSignaling", {
         type: "peerConnection",
         data: [peerId],
@@ -473,7 +473,7 @@ class SimpleMediasoupPeerServer {
     }
   }
 
-  removePeerFromRoom({ peerId, roomId }) {
+  async removePeerFromRoom({ peerId, roomId }) {
     logger(`Peer with id ${peerId} leaving room ${roomId}.`);
 
     if (!this.rooms[roomId]) return;
@@ -485,11 +485,14 @@ class SimpleMediasoupPeerServer {
     // disconnect this peer from others within the room:
     const consumerIds = Object.keys(this.peers[peerId].consumers);
     const dataConsumerIds = Object.keys(this.peers[peerId].dataConsumers);
-    consumerIds.forEach((consumerId) => {
-      this.closeConsumer({peerId, consumer:this.peers[peerId].consumers[consumerId]});
+    consumerIds.forEach(async (consumerId) => {
+      await this.closeConsumer({ peerId, consumer: this.peers[peerId].consumers[consumerId] });
     });
-    dataConsumerIds.forEach((consumerId) => {
-      this.closeDataConsumer({peerId, consumer:this.peers[peerId].dataConsumers[consumerId]});
+    dataConsumerIds.forEach(async (consumerId) => {
+      await this.closeDataConsumer({
+        peerId,
+        consumer: this.peers[peerId].dataConsumers[consumerId],
+      });
     });
 
     // inform remaining peers
@@ -497,7 +500,7 @@ class SimpleMediasoupPeerServer {
     const dataProducerIds = Object.keys(this.peers[peerId].dataProducers);
 
     const remainingRoomPeerIds = this.rooms[roomId];
-    remainingRoomPeerIds.forEach((otherPeerId) => {
+    remainingRoomPeerIds.forEach(async (otherPeerId) => {
       const otherPeer = this.peers[otherPeerId];
       if (!otherPeer) return;
 
@@ -509,13 +512,13 @@ class SimpleMediasoupPeerServer {
       producerIds.forEach(async (pid) => {
         const consumer = otherPeer.consumers[pid];
         if (consumer) {
-          this.closeConsumer({peerId: otherPeerId, consumer});
+          await this.closeConsumer({ peerId: otherPeerId, consumer });
         }
       });
       dataProducerIds.forEach(async (pid) => {
         const consumer = otherPeer.dataConsumers[pid];
         if (consumer) {
-          await this.closeDataConsumer({peerId: otherPeerId, consumer})
+          await this.closeDataConsumer({ peerId: otherPeerId, consumer });
         }
       });
     });
@@ -721,7 +724,7 @@ class SimpleMediasoupPeerServer {
 
     consumer.on("producerclose", () => {
       logger("Producer closed! Closing server-side consumer!");
-      this.closeConsumer({peerId: consumingPeerId,consumer});
+      this.closeConsumer({ peerId: consumingPeerId, consumer });
     });
 
     // consumer.on('producerpause', () => {
@@ -737,26 +740,26 @@ class SimpleMediasoupPeerServer {
     return consumer;
   }
 
-  async closeConsumer({peerId, consumer}) {
-    logger(`Closing consumer ${consumer.id} from peer ${peerId}`)
+  async closeConsumer({ peerId, consumer }) {
+    logger(`Closing consumer ${consumer.id} from peer ${peerId}`);
     try {
-    //  close the server-side consumer
-    await consumer.close();
+      //  close the server-side consumer
+      await consumer.close();
 
-    // tell the peer to close their corresponding consumer
-    this.peers[peerId].socket.emit("mediasoupSignaling", {
-      type: "consumerClosed",
-      data: {
-        producingPeerId: consumer.appData.peerId,
-        producerId: consumer.producerId,
-      },
-    });
+      // tell the peer to close their corresponding consumer
+      this.peers[peerId].socket.emit("mediasoupSignaling", {
+        type: "consumerClosed",
+        data: {
+          producingPeerId: consumer.appData.peerId,
+          producerId: consumer.producerId,
+        },
+      });
 
-    // delete reference to this consumer
-    delete this.peers[peerId].consumers[consumer.producerId];
-  } catch(err) {
-    console.log('closeConsumer error:',err);
-  }
+      // delete reference to this consumer
+      delete this.peers[peerId].consumers[consumer.producerId];
+    } catch (err) {
+      console.log("closeConsumer error:", err);
+    }
   }
 
   async createDataConsumer(consumingPeerId, producer) {
@@ -817,25 +820,25 @@ class SimpleMediasoupPeerServer {
     return dataConsumer;
   }
 
-  async closeDataConsumer({peerId, consumer}) {
+  async closeDataConsumer({ peerId, consumer }) {
     try {
-    //  close the server-side consumer
-    await consumer.close();
+      //  close the server-side consumer
+      await consumer.close();
 
-    // tell the peer to close their corresponding consumer
-    this.peers[peerId].socket.emit("mediasoupSignaling", {
-      type: "dataConsumerClosed",
-      data: {
-        producingPeerId: consumer.appData.peerId,
-        producerId: consumer.producerId,
-      },
-    });
+      // tell the peer to close their corresponding consumer
+      this.peers[peerId].socket.emit("mediasoupSignaling", {
+        type: "dataConsumerClosed",
+        data: {
+          producingPeerId: consumer.appData.peerId,
+          producerId: consumer.producerId,
+        },
+      });
 
-    // delete reference to this consumer
-    delete this.peers[peerId].dataConsumers[consumer.producerId];
-  } catch(err) {
-    console.log('closeDataConsumer error:',err);
-  }
+      // delete reference to this consumer
+      delete this.peers[peerId].dataConsumers[consumer.producerId];
+    } catch (err) {
+      console.log("closeDataConsumer error:", err);
+    }
   }
 
   async createProducer(producingPeerId, data) {
