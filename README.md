@@ -27,7 +27,7 @@ Add the client-side library to your code using a script tag:
 
 ```js
 <script
-    src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+    src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@latest/dist/SimpleMediasoupPeer.js"
     type="text/javascript"
 ></script>
 ```
