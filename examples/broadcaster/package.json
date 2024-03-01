@@ -11,8 +11,6 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
-    "ip": "^1.1.8",
-    "simple-mediasoup-peer-server": "^0.0.1",
-    "socket.io": "^4.5.1"
+    "simple-mediasoup-peer-server": "^0.0.7"
   }
 }
