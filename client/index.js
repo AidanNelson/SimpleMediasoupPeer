@@ -163,12 +163,6 @@ class SimpleMediasoupPeer {
       type: "leaveRoom",
       data: { roomId: roomId },
     });
-
-    // disconnect from other peers in this room
-    // for (const peerId in this.latestAvailableProducers) {
-    //   this.disconnectFromPeer(peerId);
-    //   this.callEventCallback("peerDisconnection", { peerId });
-    // }
     this.latestAvailableProducers = {};
   }
 
@@ -362,8 +356,12 @@ class SimpleMediasoupPeer {
     // console.log("ensure connections");
     // console.log("latest available producers:", this.latestAvailableProducers);
     // console.log("desired connections:", this.desiredPeerConnections);
+
+    
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
+
+      // check all their producers
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
@@ -378,6 +376,8 @@ class SimpleMediasoupPeer {
           }
         }
       }
+
+      // check all available data producers
       for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
@@ -519,27 +519,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  // TODO use more modern and efficient approaches to this
   updatePeersFromSyncData(syncData) {
-    // check for new peers
-    // for (const peerId in syncData) {
-    //   if (!this.latestAvailableProducers[peerId]) {
-    //     if (peerId !== this.socket.id) {
-    //       this.callEventCallback("peerConnection", { peerId });
-    //     }
-    //   }
-    // }
-
-    // check for disconnections
-    // for (const peerId in this.latestAvailableProducers) {
-    //   if (!syncData[peerId]) {
-    //     if (peerId !== this.socket.id) {
-    //       this.callEventCallback("peerDisconnection", { peerId });
-    //     }
-    //   }
-    // }
-
-    // finally update the latestavailableproducers and connections
     this.latestAvailableProducers = syncData;
     this.ensureConnectedToDesiredPeerConnections();
   }
