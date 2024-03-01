@@ -250,6 +250,8 @@ class SimpleMediasoupPeerServer {
   }
 
   async handleSocketRequest(id, request, callback) {
+    logger(`Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`, request.data);
+    logger
     switch (request.type) {
       case "joinRoom": {
         this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
