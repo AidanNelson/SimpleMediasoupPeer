@@ -71,6 +71,7 @@ function addPeerElements(id) {
   connectButton.addEventListener(
     "click",
     () => {
+      console.log("connnect to peer:", id);
       connectToPeer(id);
     },
     false
@@ -218,7 +219,8 @@ function main() {
   console.log("~~~~~~~~~~~~~~~~~");
   // setupSocketConnection();
 
-  mediasoupPeer = new SimpleMediasoupPeer();
+  mediasoupPeer = new SimpleMediasoupPeer({ autoConnect: true });
+  window.peer = mediasoupPeer;
 
   document.getElementById("joinRoomSubmit").addEventListener("click", () => {
     const roomId = document.getElementById("roomIdInput").value;

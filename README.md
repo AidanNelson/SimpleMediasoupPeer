@@ -4,7 +4,7 @@ Simple Mediasoup Peer provides a simple way to build real-time video and audio w
 
 ## Getting Started
 
-### Server-Side Setup
+### Server-Side Setup (Node.js)
 
 This library can be installed from npm (the node package manager).
 
@@ -21,13 +21,13 @@ new SimpleMediasoupPeerServer();
 
 You're done! 🙃 By default, this server will create a Mediasoup worker and router for every available CPU core. Working on an 8-core server, you'll have 8 Mediasoup workers and 8 Mediasoup routers available.
 
-### Client-Side Setup
+### Client-Side Setup (Browser)
 
 Add the client-side library to your code using a script tag:
 
 ```js
 <script
-    src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@0.0.3/dist/SimpleMediasoupPeer.js"
+    src="https://cdn.jsdelivr.net/npm/simple-mediasoup-peer-client@latest/dist/SimpleMediasoupPeer.js"
     type="text/javascript"
 ></script>
 ```
@@ -57,6 +57,9 @@ This peer has the following methods available:
 ```js
 // join a room!
 peer.joinRoom("MyCoolRoomName");
+
+// leave a room
+peer.leaveRoom("MyCoolRoomName");
 
 // deal with incoming tracks
 peer.on("track", ({ track, peerId, label }) => {
@@ -101,10 +104,10 @@ Note that this library does not deal with getUserMedia requests, keeping track o
 
 ## Examples
 
--   [Simple Video Chat](./examples/simple-video-chat/) - A simple video chat in a single room.
+-   [Multiple Rooms](./examples/multiple-rooms/) - A video chat with multiple rooms.
 -   [Broadcast](./examples/broadcaster/) - This example sets up a broadcast page and an audience page. It uses custom encodings to ensure a high-quality broadcast.
 -   [Load Testing](./examples/load-testing/) - Use this example for a quick-and-dirty approach to testing the capacity of your server to roughly estimate how many users it will support.
--   [Multiple Rooms](./examples/multiple-rooms/) - Use this example to see how to switch between rooms.
+
 
 ### How many peers can I support?
 

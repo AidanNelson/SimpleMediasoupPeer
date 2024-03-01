@@ -11,4 +11,7 @@ module.exports = {
       umdNamedDefine: true,
     },
   },
+  devServer: {
+    port: 9000,
+  },
 };
