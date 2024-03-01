@@ -115,7 +115,7 @@ class SimpleMediasoupPeerServer {
   sendSyncDataToAllRooms() {
     // const allRooms = this.io.of("/").adapter.rooms;
     const allRooms = Object.keys(this.rooms);
-    logger("Sending sync data to all rooms:", allRooms);
+    // logger("Sending sync data to all rooms:", allRooms);
     for (const roomId of allRooms) {
       const syncData = this.getSyncDataForRoom(roomId);
       const peerIdsInRoom = this.rooms[roomId];
@@ -128,7 +128,7 @@ class SimpleMediasoupPeerServer {
             data: syncData,
           });
         });
-        logger("sending sync data to room", roomId, ":", syncData);
+        // logger("sending sync data to room", roomId, ":", syncData);
       }
     }
   }
@@ -494,6 +494,13 @@ class SimpleMediasoupPeerServer {
         consumer: this.peers[peerId].dataConsumers[consumerId],
       });
     });
+
+    // emit peer disconnection events for other peers to the peer that is leaving
+    this.peers[peerId].socket.emit("mediasoupSignaling", {
+      type: "peerDisconnection",
+      data: this.rooms[roomId]
+    });
+
 
     // inform remaining peers
     const producerIds = Object.keys(this.peers[peerId].producers);

@@ -136,6 +136,7 @@ class SimpleMediasoupPeer {
   }
 
   async joinRoom(roomId) {
+    console.log('joining room ',roomId);
     if (!roomId) {
       logger("Please enter a room id to join");
       return;
@@ -157,6 +158,7 @@ class SimpleMediasoupPeer {
   }
 
   async leaveRoom({ roomId }) {
+    console.log('leaving room',roomId);
     this.socket.request("mediasoupSignaling", {
       type: "leaveRoom",
       data: { roomId: roomId },
@@ -357,9 +359,9 @@ class SimpleMediasoupPeer {
   }
 
   ensureConnectedToDesiredPeerConnections() {
-    console.log("ensure connections");
-    console.log("latest available producers:", this.latestAvailableProducers);
-    console.log("desired connections:", this.desiredPeerConnections);
+    // console.log("ensure connections");
+    // console.log("latest available producers:", this.latestAvailableProducers);
+    // console.log("desired connections:", this.desiredPeerConnections);
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
@@ -370,7 +372,7 @@ class SimpleMediasoupPeer {
 
         if (shouldConsume) {
           const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-          logger("existing consumer:", consumer);
+          // logger("existing consumer:", consumer);
           if (!consumer) {
             this.requestConsumer(peerId, producerId);
           }
@@ -385,7 +387,7 @@ class SimpleMediasoupPeer {
         if (shouldConsume) {
           const dataConsumer =
             this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
-          logger("existing consumer:", dataConsumer);
+          // logger("existing consumer:", dataConsumer);
           if (!dataConsumer) {
             this.requestDataConsumer(peerId, dataProducerId);
           }
