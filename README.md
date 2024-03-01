@@ -58,6 +58,9 @@ This peer has the following methods available:
 // join a room!
 peer.joinRoom("MyCoolRoomName");
 
+// leave a room
+peer.leaveRoom("MyCoolRoomName");
+
 // deal with incoming tracks
 peer.on("track", ({ track, peerId, label }) => {
     // do something with this new track
@@ -101,10 +104,10 @@ Note that this library does not deal with getUserMedia requests, keeping track o
 
 ## Examples
 
--   [Simple Video Chat](./examples/simple-video-chat/) - A simple video chat in a single room.
+-   [Multiple Rooms](./examples/multiple-rooms/) - A video chat with multiple rooms.
 -   [Broadcast](./examples/broadcaster/) - This example sets up a broadcast page and an audience page. It uses custom encodings to ensure a high-quality broadcast.
 -   [Load Testing](./examples/load-testing/) - Use this example for a quick-and-dirty approach to testing the capacity of your server to roughly estimate how many users it will support.
--   [Multiple Rooms](./examples/multiple-rooms/) - Use this example to see how to switch between rooms.
+
 
 ### How many peers can I support?
 

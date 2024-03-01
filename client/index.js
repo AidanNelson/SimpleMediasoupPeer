@@ -82,6 +82,7 @@ class SimpleMediasoupPeer {
         this.options.socketClientOptions
       );
     }
+
     this.producers = {};
     this.consumers = {};
     this.dataConsumers = {};
@@ -135,6 +136,7 @@ class SimpleMediasoupPeer {
   }
 
   async joinRoom(roomId) {
+    console.log('joining room ',roomId);
     if (!roomId) {
       logger("Please enter a room id to join");
       return;
@@ -143,17 +145,8 @@ class SimpleMediasoupPeer {
     if (this.currentRoomId === roomId) {
       logger("Already joined room: ", roomId);
       return;
-    } else {
-      // if we're in a different room, disconnect from all peers therein
-      this.socket.request("mediasoupSignaling", {
-        type: "leaveRoom",
-        data: { roomId: roomId },
-      });
-      for (const peerId in this.latestAvailableProducers) {
-        this.disconnectFromPeer(peerId);
-        this.callEventCallback("peerDisconnection", { peerId });
-      }
-      this.latestAvailableProducers = {};
+    } else if (this.currentRoomId) {
+      this.leaveRoom({ roomId: this.currentRoomId });
     }
 
     // finally, join the new room
@@ -162,6 +155,15 @@ class SimpleMediasoupPeer {
       data: { roomId },
     });
     this.currentRoomId = roomId;
+  }
+
+  async leaveRoom({ roomId }) {
+    console.log('leaving room',roomId);
+    this.socket.request("mediasoupSignaling", {
+      type: "leaveRoom",
+      data: { roomId: roomId },
+    });
+    this.latestAvailableProducers = {};
   }
 
   callEventCallback(event, data) {
@@ -351,11 +353,15 @@ class SimpleMediasoupPeer {
   }
 
   ensureConnectedToDesiredPeerConnections() {
-    logger("ensure connections");
-    logger("latest available producers:", this.latestAvailableProducers);
-    logger("desired connections:", this.desiredPeerConnections);
+    // console.log("ensure connections");
+    // console.log("latest available producers:", this.latestAvailableProducers);
+    // console.log("desired connections:", this.desiredPeerConnections);
+
+    
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
+
+      // check all their producers
       for (const producerId in this.latestAvailableProducers[peerId].producers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
@@ -364,12 +370,14 @@ class SimpleMediasoupPeer {
 
         if (shouldConsume) {
           const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-          logger("existing consumer:", consumer);
+          // logger("existing consumer:", consumer);
           if (!consumer) {
             this.requestConsumer(peerId, producerId);
           }
         }
       }
+
+      // check all available data producers
       for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
         const shouldConsume =
           this.desiredPeerConnections.has(peerId) ||
@@ -379,7 +387,7 @@ class SimpleMediasoupPeer {
         if (shouldConsume) {
           const dataConsumer =
             this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
-          logger("existing consumer:", dataConsumer);
+          // logger("existing consumer:", dataConsumer);
           if (!dataConsumer) {
             this.requestDataConsumer(peerId, dataProducerId);
           }
@@ -389,6 +397,7 @@ class SimpleMediasoupPeer {
   }
 
   requestConsumer(producingPeerId, producerId) {
+    console.log(`Requesting consumer for producer ${producerId} from peer ${producingPeerId}`);
     if (!this.consumers[producingPeerId]) {
       this.consumers[producingPeerId] = {};
     }
@@ -510,34 +519,31 @@ class SimpleMediasoupPeer {
     }
   }
 
-  // TODO use more modern and efficient approaches to this
   updatePeersFromSyncData(syncData) {
-    // check for new peers
-    for (const peerId in syncData) {
-      if (!this.latestAvailableProducers[peerId]) {
-        if (peerId !== this.socket.id) {
-          this.callEventCallback("peerConnection", { peerId });
-        }
-      }
-    }
-
-    // check for disconnections
-    for (const peerId in this.latestAvailableProducers) {
-      if (!syncData[peerId]) {
-        if (peerId !== this.socket.id) {
-          this.callEventCallback("peerDisconnection", { peerId });
-        }
-      }
-    }
-
-    // finally update the latestavailableproducers and connections
     this.latestAvailableProducers = syncData;
     this.ensureConnectedToDesiredPeerConnections();
   }
 
   async handleSocketMessage(request) {
     switch (request.type) {
+      case "peerConnection": {
+        console.log("peer connection", request.data);
+        request.data.forEach((peerId) => {
+          this.callEventCallback("peerConnection", { peerId });
+        });
+        break;
+      }
+
+      case "peerDisconnection": {
+        console.log("peer disonnection", request.data);
+        request.data.forEach((peerId) => {
+          this.callEventCallback("peerDisconnection", { peerId });
+        });
+        break;
+      }
+
       case "availableProducers": {
+        console.log("got data");
         this.updatePeersFromSyncData(request.data);
         break;
       }
@@ -575,7 +581,6 @@ class SimpleMediasoupPeer {
 
   closeConsumer(consumer) {
     logger("Closing consumer:", consumer.id);
-    consumer.close();
     this.socket.request("mediasoupSignaling", {
       type: "closeConsumer",
       data: {
@@ -606,8 +611,9 @@ class SimpleMediasoupPeer {
   connectToPeer(otherPeerId) {
     logger("Attempting to connect to peer", otherPeerId);
     this.desiredPeerConnections.add(otherPeerId);
+    console.log(this.latestAvailableProducers);
 
-    for (const producerId in this.latestAvailableProducers[otherPeerId]) {
+    for (const producerId in this.latestAvailableProducers[otherPeerId].producers) {
       const existingConsumer =
         this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
       logger("existingConsumer:", existingConsumer);
