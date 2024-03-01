@@ -23,15 +23,15 @@ To develop on the client-side [library](/client/index.js) (simple-mediasoup-peer
 ```bash
 # enter the client side library folder
 cd client
-# start the build system (parcel) and a local development server
-npm run start
+# start the build system and a local development server
+npm run dev
 ```
 
 Finally, in your index.html code, you will need to load the client-side library from the local development server
 
 ```html
 <script
-    src="http://localhost:8080/SimpleMediasoupPeer.js"
+    src="http://localhost:9000/SimpleMediasoupPeer.js"
     type="text/javascript"
 ></script>
 ```
