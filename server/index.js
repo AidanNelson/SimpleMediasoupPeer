@@ -51,6 +51,7 @@ const { Server } = require("socket.io");
 const config = require("./config");
 const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer:server");
+const { playVideoWithFFMPEG } = require("./utils.js");
 
 class SimpleMediasoupPeerServer {
   constructor(options = {}) {
@@ -123,7 +124,7 @@ class SimpleMediasoupPeerServer {
         delete this.rooms[roomId];
       } else {
         peerIdsInRoom.forEach((pid) => {
-          this.peers[pid].socket.emit("mediasoupSignaling", {
+          this.peers[pid].socket?.emit("mediasoupSignaling", {
             type: "availableProducers",
             data: syncData,
           });
@@ -250,8 +251,11 @@ class SimpleMediasoupPeerServer {
   }
 
   async handleSocketRequest(id, request, callback) {
-    logger(`Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`, request.data);
-    logger
+    logger(
+      `Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`,
+      request.data
+    );
+    logger;
     switch (request.type) {
       case "joinRoom": {
         this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
@@ -456,7 +460,7 @@ class SimpleMediasoupPeerServer {
     // tell everyone else that this peer just joined
     existingPeerIds.forEach((existingPeerId) => {
       console.log("telling", existingPeerId, "about new peer:", peerId);
-      this.peers[existingPeerId]?.socket.emit("mediasoupSignaling", {
+      this.peers[existingPeerId]?.socket?.emit("mediasoupSignaling", {
         type: "peerConnection",
         data: [peerId],
       });
@@ -500,9 +504,8 @@ class SimpleMediasoupPeerServer {
     // emit peer disconnection events for other peers to the peer that is leaving
     this.peers[peerId].socket.emit("mediasoupSignaling", {
       type: "peerDisconnection",
-      data: this.rooms[roomId]
+      data: this.rooms[roomId],
     });
-
 
     // inform remaining peers
     const producerIds = Object.keys(this.peers[peerId].producers);
@@ -513,7 +516,7 @@ class SimpleMediasoupPeerServer {
       const otherPeer = this.peers[otherPeerId];
       if (!otherPeer) return;
 
-      otherPeer.socket.emit("mediasoupSignaling", {
+      otherPeer.socket?.emit("mediasoupSignaling", {
         type: "peerDisconnection",
         data: [peerId],
       });
@@ -977,6 +980,129 @@ class SimpleMediasoupPeerServer {
     } catch (err) {
       logger(err);
     }
+  }
+
+  async playVideoToRoom({ file, roomId }) {
+    // adds a broadcaster on the server side and spits out the parameters
+    // can be used for RTMP / SRT ingestions on server side
+
+    const producingPeerId = "serverSideMedia" + Math.random().toString();
+
+    this.peers[producingPeerId] = {
+      socket: undefined,
+      room: undefined,
+      routerIndex: this.getNewPeerRouterIndex(),
+      transports: {},
+      producers: {},
+      consumers: {},
+      dataProducers: {},
+      dataConsumers: {},
+    };
+
+    const r = this.getRouterForPeer(producingPeerId);
+
+    const transport = await r.createPlainTransport({
+      // listenIp: config.mediasoup.plainTransportOptions.listenIp.ip,
+      listenIp: "127.0.0.1",
+      rtcpMux: false,
+      comedia: true,
+    });
+    // console.log("Plain Transport Tuple: ", transport.tuple);
+    // console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
+
+    const appData = {
+      label: "serverSideMedia",
+      broadcast: true,
+      peerId: producingPeerId,
+    };
+
+    console.log(JSON.stringify(r.rtpCapabilities, null, 4));
+
+    const producer = await transport.produce({
+      kind: "video",
+      rtpParameters: {
+        mid: "VIDEO",
+        codecs: [
+          // for VP9
+          // {
+          //   mimeType: "video/VP9",
+          //   clockRate: 90000,
+          //   payloadType: 103,
+          //   parameters: {
+          //     "profile-id": 2,
+          //     "x-google-start-bitrate": 1000,
+          //   },
+          // },
+          // {
+          //   mimeType: "video/vp8",
+          //   payloadType: 101,
+          //   clockRate: 90000,
+          // },
+          // for h264
+          {
+            mimeType: "video/h264",
+            payloadType: 112,
+            clockRate: 90000,
+            parameters: {
+              "packetization-mode": 1,
+              "profile-level-id": "4d0032",
+            },
+            rtcpFeedback: [
+              { type: "nack" },
+              { type: "nack", parameter: "pli" },
+              { type: "goog-remb" },
+            ],
+          },
+          // {
+          //   mimeType: "video/rtx",
+          //   payloadType: 113,
+          //   clockRate: 90000,
+          //   parameters: { apt: 112 },
+          // },
+        ],
+        headerExtensions: [
+          {
+            uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
+            id: 10,
+          },
+          {
+            uri: "urn:3gpp:video-orientation",
+            id: 13,
+          },
+        ],
+        // for vpx
+        // encodings: [{ ssrc: 2222 }],
+
+        // for h264
+        encodings: [
+          { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
+          { ssrc: 22222224, rtx: { ssrc: 22222225 } },
+          { ssrc: 22222226, rtx: { ssrc: 22222227 } },
+          { ssrc: 22222228, rtx: { ssrc: 22222229 } },
+        ],
+        // rtcp: {
+        //   cname: "video-1",
+        // },
+      },
+      appData,
+    });
+
+    // add producer to the peer object
+    this.peers[producingPeerId].producers[producer.id] = {};
+    this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
+      producer;
+
+    this.addPeerToRoom({ peerId: producingPeerId, roomId });
+
+    playVideoWithFFMPEG({
+      file,
+      plainTransportPort: transport.tuple.localPort,
+      plainTransportRTCPPort: transport.rtcpTuple.localPort,
+    });
+    // return {
+    //   tuple: transport.tuple,
+    //   rtcpTuple: transport.rtcpTuple,
+    // };
   }
 }
 
