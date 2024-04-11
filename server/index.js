@@ -47,13 +47,15 @@ this.peers = {
 const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
 const { Server } = require("socket.io");
+const EventEmitter = require("eventemitter3");
 
 const config = require("./config");
 const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer:server");
 
-class SimpleMediasoupPeerServer {
+class SimpleMediasoupPeerServer extends EventEmitter {
   constructor(options = {}) {
+    super();
     const defaultOptions = {
       io: null,
       socketServerOpts: {
@@ -250,8 +252,11 @@ class SimpleMediasoupPeerServer {
   }
 
   async handleSocketRequest(id, request, callback) {
-    logger(`Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`, request.data);
-    logger
+    logger(
+      `Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`,
+      request.data
+    );
+    logger;
     switch (request.type) {
       case "joinRoom": {
         this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
@@ -296,6 +301,8 @@ class SimpleMediasoupPeerServer {
 
         const producer = await this.createProducer(id, request.data);
         callback({ id: producer.id });
+
+        this.emit("newProducer", { producingPeerId: id, producerId: producer.id });
 
         // update room
 
@@ -500,9 +507,8 @@ class SimpleMediasoupPeerServer {
     // emit peer disconnection events for other peers to the peer that is leaving
     this.peers[peerId].socket.emit("mediasoupSignaling", {
       type: "peerDisconnection",
-      data: this.rooms[roomId]
+      data: this.rooms[roomId],
     });
-
 
     // inform remaining peers
     const producerIds = Object.keys(this.peers[peerId].producers);
@@ -977,6 +983,243 @@ class SimpleMediasoupPeerServer {
     } catch (err) {
       logger(err);
     }
+  }
+
+  async recordToFile({ producingPeerId, producerId, filename }) {
+    const routerToUse = this.getRouterForPeer(producingPeerId);
+    const serverSideConsumerPeerId = "ServerSideConsumerPeer_" + Math.random().toString();
+    this.peers[serverSideConsumerPeerId] = {
+      routerIndex: routerToUse,
+      transports: {},
+      producers: {},
+      consumers: {},
+    };
+
+    const transport = await routerToUse.createPlainTransport({
+      // listenIp: config.mediasoup.plainTransportOptions.listenIp.ip,
+      listenIp: "127.0.0.1",
+      rtcpMux: false,
+      comedia: false,
+    });
+
+    this.peers[serverSideConsumerPeerId].transports[transport.id] = transport;
+
+    await transport.connect({
+      ip: "127.0.0.1",
+      port: 5006,
+      rtcpPort: 5007,
+    });
+
+    console.log(
+      "mediasoup VIDEO RTP SEND transport connected: %s:%d <--> %s:%d (%s)",
+      transport.tuple.localIp,
+      transport.tuple.localPort,
+      transport.tuple.remoteIp,
+      transport.tuple.remotePort,
+      transport.tuple.protocol
+    );
+
+    console.log(
+      "mediasoup VIDEO RTCP SEND transport connected: %s:%d <--> %s:%d (%s)",
+      transport.rtcpTuple.localIp,
+      transport.rtcpTuple.localPort,
+      transport.rtcpTuple.remoteIp,
+      transport.rtcpTuple.remotePort,
+      transport.rtcpTuple.protocol
+    );
+
+    const rtpConsumer = await transport.consume({
+      producerId: producerId,
+      rtpCapabilities: routerToUse.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
+      paused: true,
+    });
+
+    // start ffmpeg process
+    const useAudio = false;
+    const useVideo = true;
+    const useH264 = true;
+
+    const cmdProgram = "ffmpeg"; // Found through $PATH
+
+    let cmdInputPath = `${__dirname}/sdp-files/input-vp8.sdp`;
+    let cmdOutputPath = `${__dirname}/${filename}`;
+    let cmdCodec = "";
+    let cmdFormat = "-f webm -flags +global_header";
+
+    if (useAudio) {
+      cmdCodec += " -map 0:a:0 -c:a copy";
+    }
+    if (useVideo) {
+      cmdCodec += " -map 0:v:0 -c:v copy";
+
+      if (useH264) {
+        cmdInputPath = `${__dirname}/recordings/input-h264.sdp`;
+        cmdOutputPath = `${__dirname}/recordings/output-ffmpeg-h264.mp4`;
+
+        // "-strict experimental" is required to allow storing
+        // OPUS audio into MP4 container
+        cmdFormat = "-f mp4 -strict experimental";
+      }
+    }
+
+    // Run process
+    const cmdArgStr = [
+      "-nostdin",
+      "-protocol_whitelist file,rtp,udp",
+      // "-loglevel debug",
+      "-analyzeduration 5M",
+      "-probesize 5M",
+      "-fflags +genpts",
+      `-i ${cmdInputPath}`,
+      cmdCodec,
+      cmdFormat,
+      `-y ${cmdOutputPath}`,
+    ]
+      .join(" ")
+      .trim();
+
+    console.log(`Run command: ${cmdProgram} ${cmdArgStr}`);
+
+    let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
+    global.recProcess = recProcess;
+
+    recProcess.on("error", (err) => {
+      console.error("Recording process error:", err);
+    });
+
+    recProcess.on("exit", (code, signal) => {
+      console.log("Recording process exit, code: %d, signal: %s", code, signal);
+
+      global.recProcess = null;
+      // stopMediasoupRtp();
+
+      if (!signal || signal === "SIGINT") {
+        console.log("Recording stopped");
+      } else {
+        console.warn("Recording process didn't exit cleanly, output file might be corrupt");
+      }
+    });
+
+    // FFmpeg writes its logs to stderr
+    recProcess.stderr.on("data", (chunk) => {
+      chunk
+        .toString()
+        .split(/\r?\n/g)
+        .filter(Boolean) // Filter out empty strings
+        .forEach((line) => {
+          console.log(line);
+          if (line.startsWith("ffmpeg version")) {
+            // setTimeout(() => {
+            //   recResolve();
+            // }, 1000);
+          }
+        });
+    });
+
+    // then resume consumer
+    setTimeout(() => {
+      rtpConsumer.resume();
+      setTimeout(() => {
+        recProcess.kill("SIGINT");
+      }, 10000);
+    }, 3000);
+
+    // console.log("Plain Transport Tuple: ", transport.tuple);
+    // console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
+
+    // const appData = {
+    //   label: "serverSideVideoProducer",
+    //   broadcast: true,
+    //   peerId: producingPeerId,
+    // };
+
+    // console.log(JSON.stringify(r.rtpCapabilities, null, 4));
+
+    // const producer = await transport.produce({
+    //   kind: "video",
+    //   rtpParameters: {
+    //     mid: "VIDEO",
+    //     codecs: [
+    //       // for VP9
+    //       // {
+    //       //   mimeType: "video/VP9",
+    //       //   clockRate: 90000,
+    //       //   payloadType: 103,
+    //       //   parameters: {
+    //       //     "profile-id": 2,
+    //       //     "x-google-start-bitrate": 1000,
+    //       //   },
+    //       // },
+    //       // {
+    //       //   mimeType: "video/vp8",
+    //       //   payloadType: 101,
+    //       //   clockRate: 90000,
+    //       // },
+    //       // for h264
+    //       {
+    //         mimeType: "video/h264",
+    //         payloadType: 112,
+    //         clockRate: 90000,
+    //         parameters: {
+    //           "packetization-mode": 1,
+    //           "profile-level-id": "4d0032",
+    //         },
+    //         rtcpFeedback: [
+    //           { type: "nack" },
+    //           { type: "nack", parameter: "pli" },
+    //           { type: "goog-remb" },
+    //         ],
+    //       },
+    //       // {
+    //       //   mimeType: "video/rtx",
+    //       //   payloadType: 113,
+    //       //   clockRate: 90000,
+    //       //   parameters: { apt: 112 },
+    //       // },
+    //     ],
+    //     headerExtensions: [
+    //       {
+    //         uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
+    //         id: 10,
+    //       },
+    //       {
+    //         uri: "urn:3gpp:video-orientation",
+    //         id: 13,
+    //       },
+    //     ],
+    //     // for vpx
+    //     // encodings: [{ ssrc: 2222 }],
+
+    //     // for h264
+    //     encodings: [
+    //       { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
+    //       { ssrc: 22222224, rtx: { ssrc: 22222225 } },
+    //       { ssrc: 22222226, rtx: { ssrc: 22222227 } },
+    //       { ssrc: 22222228, rtx: { ssrc: 22222229 } },
+    //     ],
+    //     // rtcp: {
+    //     //   cname: "video-1",
+    //     // },
+    //   },
+    //   appData: {
+    //     label: "serverSideVideoProducer",
+    //     broadcast: true,
+    //     peerId: producingPeerId,
+    //   },
+    // });
+    // console.log();
+
+    // add producer to the peer object
+    // this.peers[producingPeerId].producers[producer.id] = {};
+    // this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
+    //   producer;
+
+    // this.broadcastProducer(producingPeerId, producer.id);
+
+    // return {
+    //   tuple: transport.tuple,
+    //   rtcpTuple: transport.rtcpTuple,
+    // };
   }
 }
 
