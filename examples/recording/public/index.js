@@ -1,4 +1,3 @@
-let clients = {};
 let mediasoupPeer;
 let localStream;
 let localScreenshareStream;
@@ -6,8 +5,8 @@ let localScreenshareStream;
 let userMediaConstraints = {
   audio: false,
   video: {
-    width: 320,
-    height: 240,
+    width: 1280,
+    height: 720,
   },
 };
 
@@ -18,95 +17,6 @@ let screenMediaConstraints = {
   },
   audio: false,
 };
-
-function addPeer(id) {
-  console.log("Client conencted: ", id);
-  clients[id] = {};
-  addPeerElements(id);
-}
-
-function removePeer(id) {
-  console.log("Client disconencted:", id);
-  const peerEl = document.getElementById(id + "_container");
-  if (peerEl) peerEl.remove();
-  delete clients[id];
-}
-
-// create a <div> for each peer
-function addPeerElements(id) {
-  let peerEl = document.createElement("div");
-  peerEl.id = id + "_container";
-  peerEl.style = "border: 1px solid black; margin: 10px; padding: 10px;";
-
-  let videoEl = document.createElement("video");
-  videoEl.id = id + "_video";
-  videoEl.setAttribute("autoplay", true);
-  videoEl.setAttribute("muted", true);
-  videoEl.setAttribute("playsinline", true);
-  peerEl.appendChild(videoEl);
-
-  videoEl = document.createElement("video");
-  videoEl.id = id + "_screen-video";
-  videoEl.setAttribute("autoplay", true);
-  videoEl.setAttribute("muted", true);
-  videoEl.setAttribute("playsinline", true);
-  peerEl.appendChild(videoEl);
-
-  let audioEl = document.createElement("audio");
-  audioEl.id = id + "_audio";
-  audioEl.setAttribute("playsinline", true);
-  audioEl.setAttribute("autoplay", true);
-  peerEl.appendChild(audioEl);
-
-  let dataEl = document.createElement("div");
-  dataEl.id = id + "_data";
-  peerEl.append(dataEl);
-
-  const headerEl = document.createElement("div");
-  const titleEl = document.createElement("p");
-  titleEl.innerText = "Client " + id + " - ";
-  headerEl.appendChild(titleEl);
-
-  let connectButton = document.createElement("button");
-  connectButton.addEventListener(
-    "click",
-    () => {
-      console.log("connnect to peer:", id);
-      connectToPeer(id);
-    },
-    false
-  );
-  connectButton.innerText = "connect";
-
-  headerEl.appendChild(connectButton);
-
-  let pauseButton = document.createElement("button");
-  pauseButton.addEventListener(
-    "click",
-    () => {
-      mediasoupPeer.pausePeer(id);
-    },
-    false
-  );
-  pauseButton.innerText = "pause";
-
-  headerEl.appendChild(pauseButton);
-
-  let resumeButton = document.createElement("button");
-  resumeButton.addEventListener(
-    "click",
-    () => {
-      mediasoupPeer.resumePeer(id);
-    },
-    false
-  );
-  resumeButton.innerText = "resume";
-
-  headerEl.appendChild(resumeButton);
-
-  peerEl.appendChild(headerEl);
-  document.getElementById("peerContainer").appendChild(peerEl);
-}
 
 async function sendCamera() {
   if (!localStream) {
@@ -149,10 +59,6 @@ function stopCamera() {
     track.stop();
   });
   localStream = null;
-}
-
-async function connectToPeer(id) {
-  await mediasoupPeer.connectToPeer(id);
 }
 
 async function startScreenshare() {
@@ -210,23 +116,12 @@ function updateHTMLElementsFromTrack(track, id, label) {
   }
 }
 
-function gotTrack({ track, peerId, label }) {
-  console.log(`Got track with label ${label} from ${peerId}.   Kind: ${track.kind}`);
-  updateHTMLElementsFromTrack(track, peerId, label);
-}
-
 function main() {
   console.log("~~~~~~~~~~~~~~~~~");
   // setupSocketConnection();
 
-  mediasoupPeer = new SimpleMediasoupPeer({ autoConnect: true });
+  mediasoupPeer = new SimpleMediasoupPeer({ autoConnect: true, roomId: 'recording' });
   window.peer = mediasoupPeer;
-
-  document.getElementById("joinRoomSubmit").addEventListener("click", () => {
-    const roomId = document.getElementById("roomIdInput").value;
-    console.log("joining room", roomId);
-    mediasoupPeer.joinRoom(roomId);
-  });
 
   document.getElementById("sendCamera").addEventListener(
     "click",
@@ -250,36 +145,6 @@ function main() {
     },
     false
   );
-
-  document.getElementById("sayHello").addEventListener(
-    "click",
-    () => {
-      mediasoupPeer.send("hello");
-    },
-    false
-  );
-
-  // create an on-track listener
-  mediasoupPeer.on("track", gotTrack);
-  mediasoupPeer.on("peerConnection", ({ peerId }) => {
-    console.log("Peer joined:", peerId);
-    addPeer(peerId);
-  });
-
-  mediasoupPeer.on("peerDisconnection", ({ peerId }) => {
-    console.log("Peer disconnected:", peerId);
-    removePeer(peerId);
-  });
-  // test with non-existant event
-  mediasoupPeer.on("sosos", () => {
-    console.log("some callback");
-  });
-
-  mediasoupPeer.on("data", (data) => {
-    console.log("got data:", data);
-    let el = document.getElementById(data.from + "_data");
-    el.innerText += data.data;
-  });
 }
 
 main();

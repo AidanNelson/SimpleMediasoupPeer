@@ -1074,15 +1074,10 @@ class SimpleMediasoupPeerServer extends EventEmitter {
       rtpConsumer.rtpParameters.rtcp.cname
     );
 
-    // setInterval(async () => {
-    //   let stats = await transport.getStats();
-    //   console.log(stats);
-    // }, 4000);
-
     // save this info so we know what to give FFMPEG
     const recordInfo = {};
 
-    recordInfo["video"] = {
+    recordInfo[rtpConsumer.kind] = {
       remoteRtpPort: transport.tuple.remotePort,
       remoteRtcpPort: transport.rtcpTuple.remotePort,
       localRtcpPort: transport.rtcpTuple ? transport.rtcpTuple.localPort : undefined,
@@ -1095,200 +1090,12 @@ class SimpleMediasoupPeerServer extends EventEmitter {
     const process = new FFmpeg(recordInfo);
 
     setTimeout(async () => {
-      // for (const consumer of peer.consumers) {
       // Sometimes the consumer gets resumed before the GStreamer process has fully started
       // so wait a couple of seconds
       await rtpConsumer.resume();
       await rtpConsumer.requestKeyFrame();
-      // }
+
     }, 1000);
-
-    // // start ffmpeg process
-    // const useAudio = false;
-    // const useVideo = true;
-    // const useH264 = false;
-
-    // const cmdProgram = "ffmpeg"; // Found through $PATH
-
-    // let cmdInputPath = `${__dirname}/sdp-files/input-vp8.sdp`;
-    // let cmdOutputPath = `${__dirname}/${filename}`;
-    // let cmdCodec = "";
-    // let cmdFormat = "-f webm -flags +global_header";
-
-    // if (useAudio) {
-    //   cmdCodec += " -map 0:a:0 -c:a copy";
-    // }
-    // if (useVideo) {
-    //   cmdCodec += " -map 0:v:0 -c:v copy";
-
-    //   if (useH264) {
-    //     cmdInputPath = `${__dirname}/sdp-files/input-h264.sdp`;
-    //     cmdOutputPath = `${__dirname}/recordings/output-ffmpeg-h264.mp4`;
-
-    //     // "-strict experimental" is required to allow storing
-    //     // OPUS audio into MP4 container
-    //     cmdFormat = "-f mp4 -strict experimental";
-    //   }
-    // }
-
-    // // Run process
-    // const cmdArgStr = [
-    //   "-nostdin",
-    //   "-analyzeduration 5M",
-    //   "-probesize 5M",
-    //   "-protocol_whitelist file,rtp,udp",
-    //   // "-loglevel debug",
-    //   // "-fflags +genpts",
-    //   `-i ${cmdInputPath}`,
-    //   cmdCodec,
-    //   cmdFormat,
-    //   `-y ${cmdOutputPath}`,
-    // ]
-    //   .join(" ")
-    //   .trim();
-
-    // console.log(`Run command: ${cmdProgram} ${cmdArgStr}`);
-
-    // let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
-    // global.recProcess = recProcess;
-
-    // recProcess.on("error", (err) => {
-    //   console.error("Recording process error:", err);
-    // });
-
-    // recProcess.on("exit", (code, signal) => {
-    //   console.log("Recording process exit, code: %d, signal: %s", code, signal);
-
-    //   global.recProcess = null;
-    //   // stopMediasoupRtp();
-
-    //   if (!signal || signal === "SIGINT") {
-    //     console.log("Recording stopped");
-    //   } else {
-    //     console.warn("Recording process didn't exit cleanly, output file might be corrupt");
-    //   }
-    // });
-
-    // // FFmpeg writes its logs to stderr
-    // recProcess.stderr.on("data", (chunk) => {
-    //   chunk
-    //     .toString()
-    //     .split(/\r?\n/g)
-    //     .filter(Boolean) // Filter out empty strings
-    //     .forEach((line) => {
-    //       console.log(line);
-    //       if (line.startsWith("ffmpeg version")) {
-    //         // setTimeout(() => {
-    //         //   recResolve();
-    //         // }, 1000);
-    //       }
-    //     });
-    // });
-
-    // then resume consumer
-    // setTimeout(() => {
-    //   rtpConsumer.resume();
-    //   setTimeout(() => {
-    //     recProcess.kill("SIGINT");
-    //   }, 10000);
-    // }, 3000);
-
-    // console.log("Plain Transport Tuple: ", transport.tuple);
-    // console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);
-
-    // const appData = {
-    //   label: "serverSideVideoProducer",
-    //   broadcast: true,
-    //   peerId: producingPeerId,
-    // };
-
-    // console.log(JSON.stringify(r.rtpCapabilities, null, 4));
-
-    // const producer = await transport.produce({
-    //   kind: "video",
-    //   rtpParameters: {
-    //     mid: "VIDEO",
-    //     codecs: [
-    //       // for VP9
-    //       // {
-    //       //   mimeType: "video/VP9",
-    //       //   clockRate: 90000,
-    //       //   payloadType: 103,
-    //       //   parameters: {
-    //       //     "profile-id": 2,
-    //       //     "x-google-start-bitrate": 1000,
-    //       //   },
-    //       // },
-    //       // {
-    //       //   mimeType: "video/vp8",
-    //       //   payloadType: 101,
-    //       //   clockRate: 90000,
-    //       // },
-    //       // for h264
-    //       {
-    //         mimeType: "video/h264",
-    //         payloadType: 112,
-    //         clockRate: 90000,
-    //         parameters: {
-    //           "packetization-mode": 1,
-    //           "profile-level-id": "4d0032",
-    //         },
-    //         rtcpFeedback: [
-    //           { type: "nack" },
-    //           { type: "nack", parameter: "pli" },
-    //           { type: "goog-remb" },
-    //         ],
-    //       },
-    //       // {
-    //       //   mimeType: "video/rtx",
-    //       //   payloadType: 113,
-    //       //   clockRate: 90000,
-    //       //   parameters: { apt: 112 },
-    //       // },
-    //     ],
-    //     headerExtensions: [
-    //       {
-    //         uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
-    //         id: 10,
-    //       },
-    //       {
-    //         uri: "urn:3gpp:video-orientation",
-    //         id: 13,
-    //       },
-    //     ],
-    //     // for vpx
-    //     // encodings: [{ ssrc: 2222 }],
-
-    //     // for h264
-    //     encodings: [
-    //       { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
-    //       { ssrc: 22222224, rtx: { ssrc: 22222225 } },
-    //       { ssrc: 22222226, rtx: { ssrc: 22222227 } },
-    //       { ssrc: 22222228, rtx: { ssrc: 22222229 } },
-    //     ],
-    //     // rtcp: {
-    //     //   cname: "video-1",
-    //     // },
-    //   },
-    //   appData: {
-    //     label: "serverSideVideoProducer",
-    //     broadcast: true,
-    //     peerId: producingPeerId,
-    //   },
-    // });
-    // console.log();
-
-    // add producer to the peer object
-    // this.peers[producingPeerId].producers[producer.id] = {};
-    // this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
-    //   producer;
-
-    // this.broadcastProducer(producingPeerId, producer.id);
-
-    // return {
-    //   tuple: transport.tuple,
-    //   rtcpTuple: transport.rtcpTuple,
-    // };
   }
 }
 
