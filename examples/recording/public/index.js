@@ -2,6 +2,10 @@ let mediasoupPeer;
 let localStream;
 let localScreenshareStream;
 
+
+let customVideoEncodings = [{ scaleResolutionDownBy: 1, maxBitrate: 500000 }];
+let customAudioEncodings = [{ maxBitrate: 256000 }];
+
 let userMediaConstraints = {
   audio: false,
   video: {
@@ -27,7 +31,7 @@ async function sendCamera() {
   const audioTrack = localStream.getAudioTracks()[0];
 
   if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "video");
+    mediasoupPeer.addTrack(videoTrack, "video", customVideoEncodings);
   }
 
   if (audioTrack) {
@@ -120,7 +124,7 @@ function main() {
   console.log("~~~~~~~~~~~~~~~~~");
   // setupSocketConnection();
 
-  mediasoupPeer = new SimpleMediasoupPeer({ autoConnect: true, roomId: 'recording' });
+  mediasoupPeer = new SimpleMediasoupPeer({ autoConnect: false, roomId: 'recording' });
   window.peer = mediasoupPeer;
 
   document.getElementById("sendCamera").addEventListener(

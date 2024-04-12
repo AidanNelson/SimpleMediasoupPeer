@@ -990,7 +990,7 @@ class SimpleMediasoupPeerServer extends EventEmitter {
     }
   }
 
-  async recordToFile({ producingPeerId, producerId, filename }) {
+  async recordToFile({ producingPeerId, producerId }) {
     // first generate an RTP transport for the given router
     const routerToUse = this.getRouterForPeer(producingPeerId);
 

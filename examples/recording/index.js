@@ -22,9 +22,8 @@ console.log(`Server listening on http://localhost:${port}`);
 let SMP = new SimpleMediasoupPeerServer();
 
 SMP.on("newProducer", (data) => {
-    const {producerId, producingPeerId} = data;
-    console.log("new producer with id",producerId,"from peer",producingPeerId);
+  const { producerId, producingPeerId } = data;
+  console.log("New producer with id", producerId, "from peer", producingPeerId);
 
-    const filename = "recording.mp4";
-    SMP.recordToFile({producingPeerId,producerId,filename})
-})
+  SMP.recordToFile({ producingPeerId, producerId });
+});
