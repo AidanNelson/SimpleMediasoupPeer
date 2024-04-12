@@ -53,6 +53,11 @@ const config = require("./config");
 const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer:server");
 
+const FFmpeg = require("./ffmpeg");
+
+const { getPort, releasePort } = require("./port");
+
+const Process = require("child_process");
 class SimpleMediasoupPeerServer extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -986,7 +991,9 @@ class SimpleMediasoupPeerServer extends EventEmitter {
   }
 
   async recordToFile({ producingPeerId, producerId, filename }) {
+    // first generate an RTP transport for the given router
     const routerToUse = this.getRouterForPeer(producingPeerId);
+
     const serverSideConsumerPeerId = "ServerSideConsumerPeer_" + Math.random().toString();
     this.peers[serverSideConsumerPeerId] = {
       routerIndex: routerToUse,
@@ -996,16 +1003,17 @@ class SimpleMediasoupPeerServer extends EventEmitter {
     };
 
     const transport = await routerToUse.createPlainTransport({
-      // listenIp: config.mediasoup.plainTransportOptions.listenIp.ip,
-      listenIp: "127.0.0.1",
+      listenInfo: { protocol: "udp", ip: "192.168.8.91" },
       rtcpMux: false,
       comedia: false,
     });
 
+    // save the transport under a new peer
     this.peers[serverSideConsumerPeerId].transports[transport.id] = transport;
 
+    // connect the transport to a given set of ports
     await transport.connect({
-      ip: "127.0.0.1",
+      ip: "192.168.8.91",
       port: 5006,
       rtcpPort: 5007,
     });
@@ -1028,101 +1036,159 @@ class SimpleMediasoupPeerServer extends EventEmitter {
       transport.rtcpTuple.protocol
     );
 
+    // then decide which codecs will work
+    const producer =
+      this.peers[producingPeerId].producers[producerId][this.peers[producingPeerId].routerIndex];
+    console.log({ producer });
+
+    const codecs = [];
+    // Codec passed to the RTP Consumer must match the codec in the Mediasoup router rtpCapabilities
+    const routerCodec = routerToUse.rtpCapabilities.codecs.find(
+      (codec) => codec.kind === producer.kind
+    );
+    codecs.push(routerCodec);
+
+    const sharedRtpCapabilities = {
+      codecs,
+      rtcpFeedback: [],
+    };
+
+    console.log("codecs:", sharedRtpCapabilities.codecs);
+
+    // then create an RTP consumer which will consume the producer using the newly
+    // created RTP transport
     const rtpConsumer = await transport.consume({
       producerId: producerId,
-      rtpCapabilities: routerToUse.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
+      rtpCapabilities: sharedRtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
       paused: true,
     });
 
-    // start ffmpeg process
-    const useAudio = false;
-    const useVideo = true;
-    const useH264 = true;
+    console.log(
+      "mediasoup VIDEO RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
+      rtpConsumer.kind,
+      rtpConsumer.type,
+      rtpConsumer.paused,
+      rtpConsumer.rtpParameters.encodings[0].ssrc,
+      rtpConsumer.rtpParameters.rtcp.cname
+    );
 
-    const cmdProgram = "ffmpeg"; // Found through $PATH
+    // setInterval(async () => {
+    //   let stats = await transport.getStats();
+    //   console.log(stats);
+    // }, 4000);
 
-    let cmdInputPath = `${__dirname}/sdp-files/input-vp8.sdp`;
-    let cmdOutputPath = `${__dirname}/${filename}`;
-    let cmdCodec = "";
-    let cmdFormat = "-f webm -flags +global_header";
+    // save this info so we know what to give FFMPEG
+    const recordInfo = {};
 
-    if (useAudio) {
-      cmdCodec += " -map 0:a:0 -c:a copy";
-    }
-    if (useVideo) {
-      cmdCodec += " -map 0:v:0 -c:v copy";
+    recordInfo["video"] = {
+      remoteRtpPort: transport.tuple.remotePort,
+      remoteRtcpPort: transport.rtcpTuple.remotePort,
+      localRtcpPort: transport.rtcpTuple ? transport.rtcpTuple.localPort : undefined,
+      rtpCapabilities: sharedRtpCapabilities,
+      rtpParameters: rtpConsumer.rtpParameters,
+      fileName: Date.now().toString(),
+    };
 
-      if (useH264) {
-        cmdInputPath = `${__dirname}/recordings/input-h264.sdp`;
-        cmdOutputPath = `${__dirname}/recordings/output-ffmpeg-h264.mp4`;
+    const process = new FFmpeg(recordInfo);
 
-        // "-strict experimental" is required to allow storing
-        // OPUS audio into MP4 container
-        cmdFormat = "-f mp4 -strict experimental";
-      }
-    }
+    setTimeout(async () => {
+      // for (const consumer of peer.consumers) {
+      // Sometimes the consumer gets resumed before the GStreamer process has fully started
+      // so wait a couple of seconds
+      await rtpConsumer.resume();
+      await rtpConsumer.requestKeyFrame();
+      // }
+    }, 1000);
 
-    // Run process
-    const cmdArgStr = [
-      "-nostdin",
-      "-protocol_whitelist file,rtp,udp",
-      // "-loglevel debug",
-      "-analyzeduration 5M",
-      "-probesize 5M",
-      "-fflags +genpts",
-      `-i ${cmdInputPath}`,
-      cmdCodec,
-      cmdFormat,
-      `-y ${cmdOutputPath}`,
-    ]
-      .join(" ")
-      .trim();
+    // // start ffmpeg process
+    // const useAudio = false;
+    // const useVideo = true;
+    // const useH264 = false;
 
-    console.log(`Run command: ${cmdProgram} ${cmdArgStr}`);
+    // const cmdProgram = "ffmpeg"; // Found through $PATH
 
-    let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
-    global.recProcess = recProcess;
+    // let cmdInputPath = `${__dirname}/sdp-files/input-vp8.sdp`;
+    // let cmdOutputPath = `${__dirname}/${filename}`;
+    // let cmdCodec = "";
+    // let cmdFormat = "-f webm -flags +global_header";
 
-    recProcess.on("error", (err) => {
-      console.error("Recording process error:", err);
-    });
+    // if (useAudio) {
+    //   cmdCodec += " -map 0:a:0 -c:a copy";
+    // }
+    // if (useVideo) {
+    //   cmdCodec += " -map 0:v:0 -c:v copy";
 
-    recProcess.on("exit", (code, signal) => {
-      console.log("Recording process exit, code: %d, signal: %s", code, signal);
+    //   if (useH264) {
+    //     cmdInputPath = `${__dirname}/sdp-files/input-h264.sdp`;
+    //     cmdOutputPath = `${__dirname}/recordings/output-ffmpeg-h264.mp4`;
 
-      global.recProcess = null;
-      // stopMediasoupRtp();
+    //     // "-strict experimental" is required to allow storing
+    //     // OPUS audio into MP4 container
+    //     cmdFormat = "-f mp4 -strict experimental";
+    //   }
+    // }
 
-      if (!signal || signal === "SIGINT") {
-        console.log("Recording stopped");
-      } else {
-        console.warn("Recording process didn't exit cleanly, output file might be corrupt");
-      }
-    });
+    // // Run process
+    // const cmdArgStr = [
+    //   "-nostdin",
+    //   "-analyzeduration 5M",
+    //   "-probesize 5M",
+    //   "-protocol_whitelist file,rtp,udp",
+    //   // "-loglevel debug",
+    //   // "-fflags +genpts",
+    //   `-i ${cmdInputPath}`,
+    //   cmdCodec,
+    //   cmdFormat,
+    //   `-y ${cmdOutputPath}`,
+    // ]
+    //   .join(" ")
+    //   .trim();
 
-    // FFmpeg writes its logs to stderr
-    recProcess.stderr.on("data", (chunk) => {
-      chunk
-        .toString()
-        .split(/\r?\n/g)
-        .filter(Boolean) // Filter out empty strings
-        .forEach((line) => {
-          console.log(line);
-          if (line.startsWith("ffmpeg version")) {
-            // setTimeout(() => {
-            //   recResolve();
-            // }, 1000);
-          }
-        });
-    });
+    // console.log(`Run command: ${cmdProgram} ${cmdArgStr}`);
+
+    // let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
+    // global.recProcess = recProcess;
+
+    // recProcess.on("error", (err) => {
+    //   console.error("Recording process error:", err);
+    // });
+
+    // recProcess.on("exit", (code, signal) => {
+    //   console.log("Recording process exit, code: %d, signal: %s", code, signal);
+
+    //   global.recProcess = null;
+    //   // stopMediasoupRtp();
+
+    //   if (!signal || signal === "SIGINT") {
+    //     console.log("Recording stopped");
+    //   } else {
+    //     console.warn("Recording process didn't exit cleanly, output file might be corrupt");
+    //   }
+    // });
+
+    // // FFmpeg writes its logs to stderr
+    // recProcess.stderr.on("data", (chunk) => {
+    //   chunk
+    //     .toString()
+    //     .split(/\r?\n/g)
+    //     .filter(Boolean) // Filter out empty strings
+    //     .forEach((line) => {
+    //       console.log(line);
+    //       if (line.startsWith("ffmpeg version")) {
+    //         // setTimeout(() => {
+    //         //   recResolve();
+    //         // }, 1000);
+    //       }
+    //     });
+    // });
 
     // then resume consumer
-    setTimeout(() => {
-      rtpConsumer.resume();
-      setTimeout(() => {
-        recProcess.kill("SIGINT");
-      }, 10000);
-    }, 3000);
+    // setTimeout(() => {
+    //   rtpConsumer.resume();
+    //   setTimeout(() => {
+    //     recProcess.kill("SIGINT");
+    //   }, 10000);
+    // }, 3000);
 
     // console.log("Plain Transport Tuple: ", transport.tuple);
     // console.log("Plain Transport RTCPTuple: ", transport.rtcpTuple);

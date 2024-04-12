@@ -85,7 +85,7 @@ const config = {
     webRtcTransportOptions: {
       listenIps: [
         {
-          ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "1.2.3.4",
+          ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "0.0.0.0",
           announcedIp: process.env.ANNOUNCED_IP || null,
         },
       ],
@@ -100,7 +100,7 @@ const config = {
     // See https://mediasoup.org/documentation/v3/mediasoup/api/#PlainTransportOptions
     plainTransportOptions: {
       listenIp: {
-        ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "1.2.3.4",
+        ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "0.0.0.0",
         announcedIp: process.env.ANNOUNCED_IP,
       },
       maxSctpMessageSize: 262144,
