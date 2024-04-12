@@ -1011,11 +1011,13 @@ class SimpleMediasoupPeerServer extends EventEmitter {
     // save the transport under a new peer
     this.peers[serverSideConsumerPeerId].transports[transport.id] = transport;
 
+    const remoteRtpPort = await getPort();
+    const remoteRtcpPort = await getPort();
     // connect the transport to a given set of ports
     await transport.connect({
       ip: "192.168.8.91",
-      port: 5006,
-      rtcpPort: 5007,
+      port: remoteRtpPort,
+      rtcpPort: remoteRtcpPort,
     });
 
     console.log(
@@ -1086,8 +1088,9 @@ class SimpleMediasoupPeerServer extends EventEmitter {
       localRtcpPort: transport.rtcpTuple ? transport.rtcpTuple.localPort : undefined,
       rtpCapabilities: sharedRtpCapabilities,
       rtpParameters: rtpConsumer.rtpParameters,
-      fileName: Date.now().toString(),
     };
+
+    recordInfo.fileName = Date.now().toString();
 
     const process = new FFmpeg(recordInfo);
 
