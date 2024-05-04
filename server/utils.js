@@ -58,8 +58,8 @@ function playVideoWithFFMPEG({ file, plainTransportPort, plainTransportRTCPPort 
     "copy",
 
     // for enabling vp9 packetization (which is currently not in spec)
-    // "-strict",
-    // "experimental",
+    "-strict",
+    "experimental",
 
     // for re-encoding to h264
     // "-c:v",
@@ -74,8 +74,8 @@ function playVideoWithFFMPEG({ file, plainTransportPort, plainTransportRTCPPort 
     // "libvpx",
     // "-b:v",
     // "2M",
-    "-deadline",
-    "realtime",
+    // "-deadline",
+    // "realtime",
     // "-max_delay",
     // "0",
 
@@ -89,10 +89,10 @@ function playVideoWithFFMPEG({ file, plainTransportPort, plainTransportRTCPPort 
     // `[select=v:f=rtp:ssrc=2222:payload_type=101]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
 
     // for vp9
-    // `[select=v:f=rtp:ssrc=2222:payload_type=103]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
+    `[select=v:f=rtp:ssrc=2222:payload_type=103]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
 
     // for h264
-    `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
+    // `[select=v:f=rtp:ssrc=22222222:payload_type=112]rtp://127.0.0.1:${plainTransportPort}?rtcpport=${plainTransportRTCPPort}`,
   ]);
 
   child.on("error", () => {

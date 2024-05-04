@@ -472,7 +472,7 @@ class SimpleMediasoupPeerServer {
 
     // tell this peer about everyone else
     if (existingPeerIds.length > 0) {
-      this.peers[peerId].socket.emit("mediasoupSignaling", {
+      this.peers[peerId].socket?.emit("mediasoupSignaling", {
         type: "peerConnection",
         data: existingPeerIds,
       });
@@ -1024,20 +1024,21 @@ class SimpleMediasoupPeerServer {
         mid: "VIDEO",
         codecs: [
           // for VP9
-          // {
-          //   mimeType: "video/VP9",
-          //   clockRate: 90000,
-          //   payloadType: 103,
-          //   parameters: {
-          //     "profile-id": 2,
-          //     "x-google-start-bitrate": 1000,
-          //   },
-          // },
-          // {
-          //   mimeType: "video/vp8",
-          //   payloadType: 101,
-          //   clockRate: 90000,
-          // },
+          {
+            mimeType: "video/VP9",
+            clockRate: 90000,
+            payloadType: 103,
+            parameters: {
+              "profile-id": 2,
+              "x-google-start-bitrate": 1000,
+            },
+          },
+          // vp8
+          {
+            mimeType: "video/vp8",
+            payloadType: 101,
+            clockRate: 90000,
+          },
           // for h264
           {
             mimeType: "video/h264",
@@ -1075,10 +1076,12 @@ class SimpleMediasoupPeerServer {
 
         // for h264
         encodings: [
-          { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
-          { ssrc: 22222224, rtx: { ssrc: 22222225 } },
-          { ssrc: 22222226, rtx: { ssrc: 22222227 } },
-          { ssrc: 22222228, rtx: { ssrc: 22222229 } },
+          { ssrc: 2222 },
+          // { ssrc: 22222222, rtx: { ssrc: 22222223 } },
+          // { ssrc: 22222222, rtx: { ssrc: 22222223 }, scalabilityMode: "L1T3" },
+          // { ssrc: 22222224, rtx: { ssrc: 22222225 } },
+          // { ssrc: 22222226, rtx: { ssrc: 22222227 } },
+          // { ssrc: 22222228, rtx: { ssrc: 22222229 } },
         ],
         // rtcp: {
         //   cname: "video-1",
