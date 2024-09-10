@@ -14,7 +14,7 @@
   "main": "dist/SimpleMediasoupPeer.js",
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "dev": "webpack-dev-server --open --mode=development"
+    "dev": "webpack-dev-server --mode=development"
   },
   "author": "",
   "license": "MIT",
