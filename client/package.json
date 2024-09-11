@@ -20,7 +20,7 @@
   "license": "MIT",
   "devDependencies": {
     "debug": "^4.3.4",
-    "mediasoup-client": "^3.7.2",
+    "mediasoup-client": "^3.7.16",
     "socket.io-client": "^4.7.4",
     "webpack": "^5.90.1",
     "webpack-cli": "^5.1.4",
