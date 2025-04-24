@@ -136,7 +136,7 @@ class SimpleMediasoupPeer {
   }
 
   async joinRoom(roomId) {
-    console.log('joining room ',roomId);
+    console.log("joining room ", roomId);
     if (!roomId) {
       logger("Please enter a room id to join");
       return;
@@ -158,7 +158,7 @@ class SimpleMediasoupPeer {
   }
 
   async leaveRoom({ roomId }) {
-    console.log('leaving room',roomId);
+    console.log("leaving room", roomId);
     this.socket.request("mediasoupSignaling", {
       type: "leaveRoom",
       data: { roomId: roomId },
@@ -228,6 +228,21 @@ class SimpleMediasoupPeer {
     };
     logger(this.tracksToProduce);
     await this.addProducer(track, label, broadcast, customEncodings);
+  }
+
+  async removeTrack(label) {
+    logger("Removing track with label:", label);
+    try {
+      if (this.producers[label]) {
+        await this.producers[label].close();
+        delete this.producers[label];
+      } else {
+        logger(`No producer found with label: ${label}`);
+      }
+      delete this.tracksToProduce[label];
+    } catch (error) {
+      logger("Error removing track:", error);
+    }
   }
 
   async addProducer(track, label, broadcast, customEncodings) {
@@ -357,7 +372,6 @@ class SimpleMediasoupPeer {
     // console.log("latest available producers:", this.latestAvailableProducers);
     // console.log("desired connections:", this.desiredPeerConnections);
 
-    
     for (const peerId in this.latestAvailableProducers) {
       if (peerId === this.socket.id) continue; // ignore our own streams
 
