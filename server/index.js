@@ -103,7 +103,14 @@ class SimpleMediasoupPeerServer {
       });
 
       socket.on("mediasoupSignaling", (data, callback) => {
-        this.handleSocketRequest(socket.id, data, callback);
+        try {
+          this.handleSocketRequest(socket.id, data, callback);
+        } catch (error) {
+          logger("Error in mediasoupSignaling handler:", error);
+          if (callback) {
+            callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          }
+        }
       });
     });
 
