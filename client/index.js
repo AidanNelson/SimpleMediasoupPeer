@@ -147,33 +147,43 @@ class SimpleMediasoupPeer {
 
   async joinRoom(roomId) {
     console.log("joining room ", roomId);
-    if (!roomId) {
-      logger("Please enter a room id to join");
-      return;
-    }
+    try {
+      if (!roomId) {
+        logger("Please enter a room id to join");
+        return;
+      }
 
-    if (this.currentRoomId === roomId) {
-      logger("Already joined room: ", roomId);
-      return;
-    } else if (this.currentRoomId) {
-      this.leaveRoom({ roomId: this.currentRoomId });
-    }
+      if (this.currentRoomId === roomId) {
+        logger("Already joined room: ", roomId);
+        return;
+      } else if (this.currentRoomId) {
+        await this.leaveRoom({ roomId: this.currentRoomId });
+      }
 
-    // finally, join the new room
-    await this.socket.request("mediasoupSignaling", {
-      type: "joinRoom",
-      data: { roomId },
-    });
-    this.currentRoomId = roomId;
+      // finally, join the new room
+      await this.socket.request("mediasoupSignaling", {
+        type: "joinRoom",
+        data: { roomId },
+      });
+      this.currentRoomId = roomId;
+    } catch (error) {
+      console.error("Error joining room:", error);
+    }
   }
 
   async leaveRoom({ roomId }) {
     console.log("leaving room", roomId);
-    this.socket.request("mediasoupSignaling", {
-      type: "leaveRoom",
-      data: { roomId: roomId },
-    });
-    this.latestAvailableProducers = {};
+    try {
+      await this.socket.request("mediasoupSignaling", {
+        type: "leaveRoom",
+        data: { roomId: roomId },
+      });
+      this.latestAvailableProducers = {};
+
+    } catch (error) {
+      console.error("Error leaving room:", error);
+      throw error;
+    }
   }
 
   callEventCallback(event, data) {
@@ -758,7 +768,7 @@ class SimpleMediasoupPeer {
   }
 
   async createSendTransport() {
-   
+
 
     try {
       const response = await this.socket.request("mediasoupSignaling", {
@@ -770,9 +780,9 @@ class SimpleMediasoupPeer {
           sctpCapabilities: this.device.sctpCapabilities,
         },
       });
-  
+
       const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
-      
+
       this.sendTransport = this.device.createSendTransport({
         id,
         iceParameters,
@@ -860,7 +870,7 @@ class SimpleMediasoupPeer {
   }
 
   async createRecvTransport() {
-    
+
 
     try {
       const response = await this.socket.request("mediasoupSignaling", {
@@ -872,9 +882,9 @@ class SimpleMediasoupPeer {
           sctpCapabilities: this.device.sctpCapabilities,
         },
       });
-  
+
       const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
-      
+
       this.recvTransport = this.device.createRecvTransport({
         id,
         iceParameters,

@@ -265,12 +265,14 @@ class SimpleMediasoupPeerServer {
     logger
     switch (request.type) {
       case "joinRoom": {
+        logger("Adding peer to room!");
         this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
         callback();
         break;
       }
 
       case "leaveRoom": {
+        logger("Removing peer from room!");
         this.removePeerFromRoom({ peerId: id, roomId: request.data.roomId });
         callback();
         break;
