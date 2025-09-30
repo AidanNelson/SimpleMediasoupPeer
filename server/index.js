@@ -393,13 +393,13 @@ class SimpleMediasoupPeerServer {
 
       case "createDataConsumer": {
         logger("Connecting peer to other peer!");
-        let dataConsumer = await this.getOrCreateDataConsumerForPeer(
-          id,
-          request.data.producingPeerId,
-          request.data.producerId
-        );
+        try {
+          const dataConsumer = await this.getOrCreateDataConsumerForPeer(
+            id,
+            request.data.producingPeerId,
+            request.data.producerId
+          );
 
-        if (dataConsumer) {
           const dataConsumerInfo = {
             peerId: request.data.producingPeerId,
             dataProducerId: request.data.producerId,
@@ -414,8 +414,11 @@ class SimpleMediasoupPeerServer {
             type: "createDataConsumer",
             data: dataConsumerInfo,
           });
+          callback();
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
         }
-        callback();
         break;
       }
 
@@ -697,67 +700,78 @@ class SimpleMediasoupPeerServer {
     then call this.createConsumer to create the corresponding consumer.
     */
   async getOrCreateDataConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
-    let existingConsumer = this.peers[consumingPeerId].dataConsumers[producerId];
+    try {
+      const existingConsumer = this.peers[consumingPeerId]?.dataConsumers?.[producerId];
 
-    if (existingConsumer) {
-      logger("Already consuming!");
-      return existingConsumer;
-    }
+      if (existingConsumer) {
+        logger("Already consuming!");
+        return existingConsumer;
+      }
 
-    logger("Creating new data consumer!");
+      logger("Creating new data consumer!");
 
-    // use our queue to avoid multiple peers requesting the same pipeProducer
-    // at the same time
-    this.queue
-      .push(async () => {
-        // first check whether the producer or one of its pipe producers exists
-        // on the consuming peer's router:
-        let consumingPeerRouterIndex = this.peers[consumingPeerId].routerIndex;
-        // logger(this.peers[producingPeerId].producers);
-        let producerOrPipeProducer =
-          this.peers[producingPeerId].dataProducers[producerId][consumingPeerRouterIndex];
+      // use our queue to avoid multiple peers requesting the same pipeProducer
+      // at the same time
+      return await this.queue.push(async () => {
+        try {
+          // Validate peers exist
+          const consumingPeer = this.peers[consumingPeerId];
+          const producingPeer = this.peers[producingPeerId];
+          if (!consumingPeer) throw new Error(`Consuming peer ${consumingPeerId} not found`);
+          if (!producingPeer) throw new Error(`Producing peer ${producingPeerId} not found`);
 
-        logger("Current producer: ", !!producerOrPipeProducer);
+          // first check whether the producer or one of its pipe producers exists
+          // on the consuming peer's router:
+          const consumingPeerRouterIndex = consumingPeer.routerIndex;
+          const dataProducerMapForPeer = producingPeer.dataProducers[producerId];
+          if (!dataProducerMapForPeer) {
+            throw new Error(
+              `Data producer ${producerId} not found for producing peer ${producingPeerId}`
+            );
+          }
 
-        if (!producerOrPipeProducer) {
-          // if it doesn't exist, create a new pipe producer
-          let producingRouterIndex = this.peers[producingPeerId].routerIndex;
-          logger(
-            `Creating pipe data producer ID ${producerId} from router ${producingRouterIndex} to peer ${consumingPeerId} in router ${consumingPeerRouterIndex}!`
-          );
+          let producerOrPipeProducer = dataProducerMapForPeer[consumingPeerRouterIndex];
+          logger("Current producer: ", !!producerOrPipeProducer);
 
-          // this.peers[producingPeerId].producers[producerId][
-          //   consumingPeerRouterIndex
-          // ] = "creating";
+          if (!producerOrPipeProducer) {
+            // if it doesn't exist, create a new pipe producer
+            const producingRouterIndex = producingPeer.routerIndex;
+            logger(
+              `Creating pipe data producer ID ${producerId} from router ${producingRouterIndex} to peer ${consumingPeerId} in router ${consumingPeerRouterIndex}!`
+            );
 
-          try {
             const { pipeDataProducer } = await this.routers[producingRouterIndex].pipeToRouter({
               dataProducerId: producerId,
               router: this.routers[consumingPeerRouterIndex],
             });
 
             // add the pipe producer to the producing peer's object of producers:
-            this.peers[producingPeerId].dataProducers[producerId][consumingPeerRouterIndex] =
+            producingPeer.dataProducers[producerId][consumingPeerRouterIndex] =
               pipeDataProducer;
 
             producerOrPipeProducer = pipeDataProducer;
-          } catch (err) {
-            console.error("Pipe To Router Error!");
           }
+
+          const newConsumer = await this.createDataConsumer(
+            consumingPeerId,
+            producerOrPipeProducer
+          );
+
+          if (!newConsumer) return null;
+
+          // add new consumer to the consuming peer's consumers object:
+          this.peers[consumingPeerId].dataConsumers[producerId] = newConsumer;
+
+          return newConsumer;
+        } catch (err) {
+          logger("Error in getOrCreateDataConsumerForPeer task:", err);
+          throw err;
         }
-
-        let newConsumer = await this.createDataConsumer(consumingPeerId, producerOrPipeProducer);
-
-        if (!newConsumer) return null;
-
-        // add new consumer to the consuming peer's consumers object:
-        this.peers[consumingPeerId].dataConsumers[producerId] = newConsumer;
-
-        return newConsumer;
-      })
-      .catch((e) => {
-        console.error(e);
       });
+    } catch (err) {
+      logger("Error in getOrCreateDataConsumerForPeer:", err);
+      throw err;
+    }
   }
 
   async createConsumer(consumingPeerId, producer) {
@@ -831,17 +845,19 @@ class SimpleMediasoupPeerServer {
   async createDataConsumer(consumingPeerId, producer) {
     let dataConsumer;
     try {
-      let transport = this.getRecvTransportForPeer(consumingPeerId);
+      const transport = this.getRecvTransportForPeer(consumingPeerId);
 
       if (!transport) {
-        console.warn(`No receive transport found for peer with ID ${consumingPeerId}`);
-        return null;
+        throw new Error(`No receive transport found for peer with ID ${consumingPeerId}`);
       }
+
+      // create the data consumer
       dataConsumer = await transport.consumeData({
         dataProducerId: producer.id,
       });
     } catch (err) {
       logger(err);
+      throw err;
     }
 
     // logger("consumer paused after creation? ", consumer.paused);

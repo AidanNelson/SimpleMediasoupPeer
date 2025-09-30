@@ -182,7 +182,6 @@ class SimpleMediasoupPeer {
 
     } catch (error) {
       console.error("Error leaving room:", error);
-      throw error;
     }
   }
 
@@ -442,12 +441,10 @@ class SimpleMediasoupPeer {
   }
 
   async requestConsumer(producingPeerId, producerId) {
-    console.log(`Requesting consumer for producer ${producerId} from peer ${producingPeerId}`);
-    if (!this.consumers[producingPeerId]) {
-      this.consumers[producingPeerId] = {};
-    }
-
     try {
+      if (!this.consumers[producingPeerId]) {
+        this.consumers[producingPeerId] = {};
+      }
       await this.socket.request("mediasoupSignaling", {
         type: "createConsumer",
         data: {
@@ -457,22 +454,25 @@ class SimpleMediasoupPeer {
       });
     } catch (error) {
       console.error("Error requesting consumer:", error);
-      throw error;
     }
   }
 
-  requestDataConsumer(producingPeerId, producerId) {
-    if (!this.dataConsumers[producingPeerId]) {
-      this.dataConsumers[producingPeerId] = {};
-    }
+  async requestDataConsumer(producingPeerId, producerId) {
+    try {
+      if (!this.dataConsumers[producingPeerId]) {
+        this.dataConsumers[producingPeerId] = {};
+      }
 
-    this.socket.request("mediasoupSignaling", {
-      type: "createDataConsumer",
-      data: {
-        producingPeerId,
-        producerId,
-      },
-    });
+      await this.socket.request("mediasoupSignaling", {
+        type: "createDataConsumer",
+        data: {
+          producingPeerId,
+          producerId,
+        },
+      });
+    } catch (error) {
+      console.error("Error requesting data consumer:", error);
+    }
   }
 
   async createConsumer(consumerInfo) {
@@ -565,7 +565,6 @@ class SimpleMediasoupPeer {
       });
     } catch (error) {
       logger.error('"newDataConsumer" request failed:%o', error);
-      throw error;
     }
   }
 
@@ -741,8 +740,6 @@ class SimpleMediasoupPeer {
       this.producers["data"].send(data);
     } catch (error) {
       logger("DataProducer.send() failed:%o", error);
-
-      throw error;
     }
   }
 
@@ -755,7 +752,6 @@ class SimpleMediasoupPeer {
       this.device = new mediasoupClient.Device();
     } catch (err) {
       logger("Error creating mediasoup device:", err);
-      throw err;
     }
   }
 
@@ -768,7 +764,6 @@ class SimpleMediasoupPeer {
       logger("Router loaded!");
     } catch (error) {
       console.error("Error connecting to mediasoup router:", error);
-      throw error;
     }
   }
 
