@@ -487,7 +487,6 @@ class SimpleMediasoupPeerServer {
       }
 
       case "closeProducer": {
-        logger("Closing producer!");
         try {
 
           const { producerId } = request.data;
@@ -503,6 +502,8 @@ class SimpleMediasoupPeerServer {
           delete this.peers[id].producers[producerId];
 
           callback({ success: true });
+          logger("Closed producer");
+
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
