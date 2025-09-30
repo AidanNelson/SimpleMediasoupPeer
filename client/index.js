@@ -441,19 +441,24 @@ class SimpleMediasoupPeer {
     }
   }
 
-  requestConsumer(producingPeerId, producerId) {
+  async requestConsumer(producingPeerId, producerId) {
     console.log(`Requesting consumer for producer ${producerId} from peer ${producingPeerId}`);
     if (!this.consumers[producingPeerId]) {
       this.consumers[producingPeerId] = {};
     }
 
-    this.socket.request("mediasoupSignaling", {
-      type: "createConsumer",
-      data: {
-        producingPeerId,
-        producerId,
-      },
-    });
+    try {
+      await this.socket.request("mediasoupSignaling", {
+        type: "createConsumer",
+        data: {
+          producingPeerId,
+          producerId,
+        },
+      });
+    } catch (error) {
+      console.error("Error requesting consumer:", error);
+      throw error;
+    }
   }
 
   requestDataConsumer(producingPeerId, producerId) {
