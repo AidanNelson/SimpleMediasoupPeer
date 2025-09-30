@@ -75,48 +75,48 @@ class SimpleMediasoupPeerServer {
 
   async init() {
     try {
-    await this.initializeMediasoupWorkersAndRouters();
+      await this.initializeMediasoupWorkersAndRouters();
 
-    this.currentPeerRouterIndex = -1;
+      this.currentPeerRouterIndex = -1;
 
-    // we will use this queue for asynchronous tasks to avoid multiple peers
-    // requesting the same thing:
-    this.queue = new AwaitQueue();
+      // we will use this queue for asynchronous tasks to avoid multiple peers
+      // requesting the same thing:
+      this.queue = new AwaitQueue();
 
-    // keep track of peers and rooms
-    this.peers = {};
-    this.rooms = {};
+      // keep track of peers and rooms
+      this.peers = {};
+      this.rooms = {};
 
-    if (this.options.io) {
-      this.io = this.options.io;
-    } else {
-      this.io = new Server(this.options.socketServerOpts);
-      this.io.listen(this.options.port);
-      logger("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
-    }
+      if (this.options.io) {
+        this.io = this.options.io;
+      } else {
+        this.io = new Server(this.options.socketServerOpts);
+        this.io.listen(this.options.port);
+        logger("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
+      }
 
-    this.io.on("connection", (socket) => {
-      logger("Socket joined:", socket.id);
-      this.addPeer(socket);
+      this.io.on("connection", (socket) => {
+        logger("Socket joined:", socket.id);
+        this.addPeer(socket);
 
-      socket.on("disconnect", () => {
-        this.removePeer(socket.id);
-      });
+        socket.on("disconnect", () => {
+          this.removePeer(socket.id);
+        });
 
-      socket.on("mediasoupSignaling", (data, callback) => {
-        try {
-          this.handleSocketRequest(socket.id, data, callback);
-        } catch (error) {
-          logger("Error in mediasoupSignaling handler:", error);
-          if (callback) {
-            callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+        socket.on("mediasoupSignaling", (data, callback) => {
+          try {
+            this.handleSocketRequest(socket.id, data, callback);
+          } catch (error) {
+            logger("Error in mediasoupSignaling handler:", error);
+            if (callback) {
+              callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+            }
           }
-        }
+        });
       });
-    });
 
-    setInterval(() => {
-      this.sendSyncDataToAllRooms();
+      setInterval(() => {
+        this.sendSyncDataToAllRooms();
       }, 1000);
     } catch (error) {
       console.error("Error initializing SimpleMediasoupPeerServer:", error);
