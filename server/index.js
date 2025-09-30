@@ -273,7 +273,12 @@ class SimpleMediasoupPeerServer {
       }
 
       case "getRouterRtpCapabilities": {
-        callback(this.routers[this.peers[id].routerIndex].rtpCapabilities);
+        const peerRouter = this.getRouterForPeer(id);
+        if (!peerRouter) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
+        callback({ routerRtpCapabilities: peerRouter.rtpCapabilities });
         break;
       }
 

@@ -205,18 +205,22 @@ class SimpleMediasoupPeer {
   async initializeMediasoupConnection() {
     logger("Initializing SimpleMediasoupPeer!");
 
-    this.setupMediasoupDevice();
-    await this.connectToMediasoupRouter();
-    await this.createSendTransport();
-    await this.createRecvTransport();
+    try {
+      this.setupMediasoupDevice();
+      await this.connectToMediasoupRouter();
+      await this.createSendTransport();
+      await this.createRecvTransport();
 
-    await this.addDataProducer();
+      await this.addDataProducer();
 
-    for (const label in this.tracksToProduce) {
-      const track = this.tracksToProduce[label].track;
-      const broadcast = this.tracksToProduce[label].broadcast;
-      const customEncodings = this.tracksToProduce[label].customEncodings;
-      this.addProducer(track, label, broadcast, customEncodings);
+      for (const label in this.tracksToProduce) {
+        const track = this.tracksToProduce[label].track;
+        const broadcast = this.tracksToProduce[label].broadcast;
+        const customEncodings = this.tracksToProduce[label].customEncodings;
+        this.addProducer(track, label, broadcast, customEncodings);
+      }
+    } catch (error) {
+      console.error("Error initializing mediasoup connection:", error);
     }
   }
 
@@ -725,16 +729,26 @@ class SimpleMediasoupPeer {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
-      logger(err);
+      logger("Error creating mediasoup device:", err);
+      throw err;
     }
   }
 
   async connectToMediasoupRouter() {
-    const routerRtpCapabilities = await this.socket.request("mediasoupSignaling", {
-      type: "getRouterRtpCapabilities",
-    });
-    await this.device.load({ routerRtpCapabilities });
-    logger("Router loaded!");
+    try {
+      const response = await this.socket.request("mediasoupSignaling", {
+        type: "getRouterRtpCapabilities",
+      });
+      if (!response || response.error) {
+        console.error("Error getting router rtp capabilities:", response.error);
+        return;
+      }
+      await this.device.load({ routerRtpCapabilities: response.routerRtpCapabilities });
+      logger("Router loaded!");
+    } catch (error) {
+      console.error("Error connecting to mediasoup router:", error);
+      throw error;
+    }
   }
 
   async createSendTransport() {
