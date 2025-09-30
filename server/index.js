@@ -75,6 +75,7 @@ class SimpleMediasoupPeerServer {
 
   async init() {
     try {
+      logger("Initializing SimpleMediasoupPeerServer!");
       await this.initializeMediasoupWorkersAndRouters();
 
       this.currentPeerRouterIndex = -1;
@@ -270,23 +271,21 @@ class SimpleMediasoupPeerServer {
     logger
     switch (request.type) {
       case "joinRoom": {
-        logger("Adding peer to room!");
         this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
-        callback();
+        callback({ success: true });
         break;
       }
 
       case "leaveRoom": {
-        logger("Removing peer from room!");
         this.removePeerFromRoom({ peerId: id, roomId: request.data.roomId });
-        callback();
+        callback({ success: true });
         break;
       }
 
       case "getRouterRtpCapabilities": {
         try {
           const peerRouter = this.getRouterForPeer(id);
-          callback({ routerRtpCapabilities: peerRouter.rtpCapabilities });
+          callback({ success: true, routerRtpCapabilities: peerRouter.rtpCapabilities });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -298,7 +297,7 @@ class SimpleMediasoupPeerServer {
         logger("Creating WebRTC transport!");
         try {
           const transportInfo = await this.createTransportForPeer(id, request.data);
-          callback(transportInfo);
+          callback({ success: true, transportInfo });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -319,7 +318,7 @@ class SimpleMediasoupPeerServer {
 
           await transport.connect({ dtlsParameters });
 
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -333,7 +332,7 @@ class SimpleMediasoupPeerServer {
 
         try {
           const producer = await this.createProducer(id, request.data);
-          callback({ id: producer.id });
+          callback({ success: true, id: producer.id });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -351,7 +350,7 @@ class SimpleMediasoupPeerServer {
 
         try {
           const producer = await this.createDataProducer(id, request.data);
-          callback({ id: producer.id });
+          callback({ success: true, id: producer.id });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -389,7 +388,7 @@ class SimpleMediasoupPeerServer {
             data: consumerInfo,
           });
 
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -420,7 +419,7 @@ class SimpleMediasoupPeerServer {
             type: "createDataConsumer",
             data: dataConsumerInfo,
           });
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -438,7 +437,7 @@ class SimpleMediasoupPeerServer {
             break;
           }
           await consumer.pause();
-          callback({ paused: true });
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -457,7 +456,7 @@ class SimpleMediasoupPeerServer {
             break;
           }
           await consumer.resume();
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -478,7 +477,7 @@ class SimpleMediasoupPeerServer {
 
           this.closeConsumer({ peerId: id, consumer });
 
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
@@ -503,7 +502,7 @@ class SimpleMediasoupPeerServer {
 
           delete this.peers[id].producers[producerId];
 
-          callback();
+          callback({ success: true });
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;

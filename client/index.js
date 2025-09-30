@@ -781,7 +781,7 @@ class SimpleMediasoupPeer {
         },
       });
 
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
 
       this.sendTransport = this.device.createSendTransport({
         id,
@@ -883,7 +883,7 @@ class SimpleMediasoupPeer {
         },
       });
 
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
 
       this.recvTransport = this.device.createRecvTransport({
         id,
