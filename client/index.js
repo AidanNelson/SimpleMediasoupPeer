@@ -100,8 +100,18 @@ class SimpleMediasoupPeer {
 
     // add promisified socket request to make our lives easier
     this.socket.request = (type, data = {}) => {
-      return new Promise((resolve) => {
-        this.socket.emit(type, data, resolve);
+      return new Promise((resolve, reject) => {
+        this.socket.emit(type, data, (response) => {
+          if (!response) {
+            return reject(new Error("No response from server"));
+          }
+          if (response.error) {
+            const err = new Error(response.error.message || "Server error");
+            err.code = response.error.code || null;
+            return reject(err);
+          }
+          resolve(response);
+        });
       });
     };
 
@@ -316,16 +326,12 @@ class SimpleMediasoupPeer {
       producer.observer.on("close", async () => {
         console.log("Producer closed.  Closing server-side producer.");
         try {
-          const response = await this.socket.request("mediasoupSignaling", {
+          await this.socket.request("mediasoupSignaling", {
             type: "closeProducer",
             data: {
               producerId: producer.id,
             },
           });
-          if (!response || response.error) {
-            logger("Error closing server-side producer:", response.error);
-            return;
-          }
         } catch (err) {
           logger("Error closing server-side producer:", err);
         }
@@ -743,10 +749,6 @@ class SimpleMediasoupPeer {
       const response = await this.socket.request("mediasoupSignaling", {
         type: "getRouterRtpCapabilities",
       });
-      if (!response || response.error) {
-        console.error("Error getting router rtp capabilities:", response.error);
-        return;
-      }
       await this.device.load({ routerRtpCapabilities: response.routerRtpCapabilities });
       logger("Router loaded!");
     } catch (error) {
@@ -756,24 +758,21 @@ class SimpleMediasoupPeer {
   }
 
   async createSendTransport() {
-    const response = await this.socket.request("mediasoupSignaling", {
-      type: "createWebRtcTransport",
-      data: {
-        forceTcp: false,
-        producing: true,
-        consuming: false,
-        sctpCapabilities: this.device.sctpCapabilities,
-      },
-    });
-
-    if (!response || response.error) {
-      console.error("Error creating send transport:", response.error);
-      return;
-    }
-
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+   
 
     try {
+      const response = await this.socket.request("mediasoupSignaling", {
+        type: "createWebRtcTransport",
+        data: {
+          forceTcp: false,
+          producing: true,
+          consuming: false,
+          sctpCapabilities: this.device.sctpCapabilities,
+        },
+      });
+  
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+      
       this.sendTransport = this.device.createSendTransport({
         id,
         iceParameters,
@@ -792,17 +791,13 @@ class SimpleMediasoupPeer {
         ) => {
           logger("Connecting Send Transport");
           try {
-            const response = await this.socket.request("mediasoupSignaling", {
+            await this.socket.request("mediasoupSignaling", {
               type: "connectWebRtcTransport",
               data: {
                 transportId: this.sendTransport.id,
                 dtlsParameters,
               },
             });
-            if (!response || response.error) {
-              errback(response.error);
-              return;
-            }
             callback();
           } catch (error) {
             errback(error);
@@ -825,11 +820,6 @@ class SimpleMediasoupPeer {
                 appData,
               },
             });
-
-            if (!response || response.error) {
-              errback(response.error);
-              return;
-            }
 
             callback({ id: response.id });
           } catch (error) {
@@ -855,11 +845,6 @@ class SimpleMediasoupPeer {
               },
             });
 
-            if (!response || response.error) {
-              errback(response.error);
-              return;
-            }
-
             logger("set up data producer with id:", response.id);
             callback({ id: response.id });
           } catch (error) {
@@ -875,24 +860,21 @@ class SimpleMediasoupPeer {
   }
 
   async createRecvTransport() {
-    const response = await this.socket.request("mediasoupSignaling", {
-      type: "createWebRtcTransport",
-      data: {
-        forceTcp: false,
-        producing: false,
-        consuming: true,
-        sctpCapabilities: this.device.sctpCapabilities,
-      },
-    });
-
-    if (!response || response.error) {
-      console.error("Error creating recv transport:", response.error);
-      return;
-    }
-
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+    
 
     try {
+      const response = await this.socket.request("mediasoupSignaling", {
+        type: "createWebRtcTransport",
+        data: {
+          forceTcp: false,
+          producing: false,
+          consuming: true,
+          sctpCapabilities: this.device.sctpCapabilities,
+        },
+      });
+  
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
+      
       this.recvTransport = this.device.createRecvTransport({
         id,
         iceParameters,
@@ -911,7 +893,7 @@ class SimpleMediasoupPeer {
         ) => {
           logger("Connecting Receive Transport!");
           try {
-            const response = await this.socket
+            await this.socket
               .request("mediasoupSignaling", {
                 type: "connectWebRtcTransport",
                 data: {
@@ -919,10 +901,6 @@ class SimpleMediasoupPeer {
                   dtlsParameters,
                 },
               })
-            if (!response || response.error) {
-              errback(response.error);
-              return;
-            }
             callback();
           } catch (error) {
             errback(error);
