@@ -220,7 +220,7 @@ class SimpleMediasoupPeer {
         this.addProducer(track, label, broadcast, customEncodings);
       }
     } catch (error) {
-      console.error("Error initializing mediasoup connection:", error);
+      console.error("Error initializing Mediasoup connection:", error);
     }
   }
 
@@ -316,14 +316,18 @@ class SimpleMediasoupPeer {
       producer.observer.on("close", async () => {
         console.log("Producer closed.  Closing server-side producer.");
         try {
-          await this.socket.request("mediasoupSignaling", {
+          const response = await this.socket.request("mediasoupSignaling", {
             type: "closeProducer",
             data: {
               producerId: producer.id,
             },
           });
+          if (!response || response.error) {
+            logger("Error closing server-side producer:", response.error);
+            return;
+          }
         } catch (err) {
-          logger(err);
+          logger("Error closing server-side producer:", err);
         }
         producer = null;
         delete this.producers[label];

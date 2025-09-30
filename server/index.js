@@ -453,20 +453,25 @@ class SimpleMediasoupPeerServer {
 
       case "closeProducer": {
         logger("Closing producer!");
+        try {
 
-        const { producerId } = request.data;
-        const producers = this.peers[id].producers[producerId];
+          const { producerId } = request.data;
+          const producers = this.peers[id].producers[producerId];
 
-        for (const routerIndex in producers) {
-          const producer = producers[routerIndex];
-          producer.close();
+          for (const routerIndex in producers) {
+            const producer = producers[routerIndex];
+            producer.close();
+          }
+
+          // update room
+
+          delete this.peers[id].producers[producerId];
+
+          callback();
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
         }
-
-        // update room
-
-        delete this.peers[id].producers[producerId];
-
-        callback();
 
         break;
       }
