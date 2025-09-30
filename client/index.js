@@ -254,76 +254,83 @@ class SimpleMediasoupPeer {
       return;
     }
 
-    if (track.kind === "video") {
-      let encodings = [
-        { maxBitrate: 500000 }, // 0.5Mbps
-      ];
+    try {
 
-      if (customEncodings) {
-        encodings = customEncodings;
-        logger("Using custom encodings:", encodings);
-      }
+      if (track.kind === "video") {
+        let encodings = [
+          { maxBitrate: 500000 }, // 0.5Mbps
+        ];
 
-      producer = await this.sendTransport.produce({
-        track: track,
-        stopTracks: false,
-        encodings,
-        codecOptions: {
-          videoGoogleStartBitrate: 1000,
-        },
-        appData: {
-          label,
-          broadcast,
-        },
-      });
-    } else if (track.kind === "audio") {
-      let encodings = [
-        { maxBitrate: 64000 }, // 64 kbps
-      ];
+        if (customEncodings) {
+          encodings = customEncodings;
+          logger("Using custom encodings:", encodings);
+        }
 
-      if (customEncodings) {
-        encodings = customEncodings;
-      }
-
-      producer = await this.sendTransport.produce({
-        track: track,
-        stopTracks: false,
-        encodings,
-        appData: {
-          label,
-          broadcast,
-        },
-      });
-    }
-
-    producer.on("transportclose", () => {
-      logger("transport closed");
-      producer = null;
-    });
-
-    producer.on("trackended", async () => {
-      logger("Track ended.  Closing producer");
-      await producer.close();
-      producer = null;
-    });
-
-    producer.observer.on("close", async () => {
-      console.log("Producer closed.  Closing server-side producer.");
-      try {
-        await this.socket.request("mediasoupSignaling", {
-          type: "closeProducer",
-          data: {
-            producerId: producer.id,
+        producer = await this.sendTransport.produce({
+          track: track,
+          stopTracks: false,
+          encodings,
+          codecOptions: {
+            videoGoogleStartBitrate: 1000,
+          },
+          appData: {
+            label,
+            broadcast,
           },
         });
-      } catch (err) {
-        logger(err);
-      }
-      producer = null;
-      delete this.producers[label];
-    });
+      } else if (track.kind === "audio") {
+        let encodings = [
+          { maxBitrate: 64000 }, // 64 kbps
+        ];
 
-    this.producers[label] = producer;
+        if (customEncodings) {
+          encodings = customEncodings;
+        }
+
+        producer = await this.sendTransport.produce({
+          track: track,
+          stopTracks: false,
+          encodings,
+          appData: {
+            label,
+            broadcast,
+          },
+        });
+      }
+
+      producer.on("transportclose", () => {
+        logger("transport closed");
+        producer = null;
+      });
+
+      producer.on("trackended", async () => {
+        logger("Track ended.  Closing producer");
+        await producer.close();
+        producer = null;
+      });
+
+      producer.observer.on("close", async () => {
+        console.log("Producer closed.  Closing server-side producer.");
+        try {
+          await this.socket.request("mediasoupSignaling", {
+            type: "closeProducer",
+            data: {
+              producerId: producer.id,
+            },
+          });
+        } catch (err) {
+          logger(err);
+        }
+        producer = null;
+        delete this.producers[label];
+      });
+
+      this.producers[label] = producer;
+
+    } catch (error) {
+      logger("Error adding producer:", error);
+      console.error("Error adding producer:", error);
+    }
   }
 
   async addDataProducer() {
@@ -363,7 +370,7 @@ class SimpleMediasoupPeer {
       });
     } catch (error) {
       logger("addDataProducer() | failed:%o", error);
-      throw error;
+      console.error("Error adding data producer:", error);
     }
   }
 
@@ -754,22 +761,28 @@ class SimpleMediasoupPeer {
 
     this.sendTransport.on(
       "connect",
-      (
+      async (
         { dtlsParameters },
         callback,
         errback // eslint-disable-line no-shadow
       ) => {
         logger("Connecting Send Transport");
-        this.socket
-          .request("mediasoupSignaling", {
+        try {
+          const response = await this.socket.request("mediasoupSignaling", {
             type: "connectWebRtcTransport",
             data: {
               transportId: this.sendTransport.id,
               dtlsParameters,
             },
-          })
-          .then(callback)
-          .catch(errback);
+          });
+          if (!response || response.error) {
+            errback(response.error);
+            return;
+          }
+          callback();
+        } catch (error) {
+          errback(error);
+        }
       }
     );
 
@@ -779,7 +792,7 @@ class SimpleMediasoupPeer {
         try {
           logger("starting to produce");
           // eslint-disable-next-line no-shadow
-          const { id } = await this.socket.request("mediasoupSignaling", {
+          const response = await this.socket.request("mediasoupSignaling", {
             type: "produce",
             data: {
               transportId: this.sendTransport.id,
@@ -789,7 +802,12 @@ class SimpleMediasoupPeer {
             },
           });
 
-          callback({ id });
+          if (!response || response.error) {
+            errback(response.error);
+            return;
+          }
+
+          callback({ id: response.id });
         } catch (error) {
           errback(error);
         }
@@ -802,7 +820,7 @@ class SimpleMediasoupPeer {
         try {
           logger("trying to set up data producer");
           // eslint-disable-next-line no-shadow
-          const { id } = await this.socket.request("mediasoupSignaling", {
+          const response = await this.socket.request("mediasoupSignaling", {
             type: "produceData",
             data: {
               transportId: this.sendTransport.id,
@@ -813,9 +831,13 @@ class SimpleMediasoupPeer {
             },
           });
 
-          logger("set up data producer with id:", id);
+          if (!response || response.error) {
+            errback(response.error);
+            return;
+          }
 
-          callback({ id });
+          logger("set up data producer with id:", response.id);
+          callback({ id: response.id });
         } catch (error) {
           errback(error);
         }

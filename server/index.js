@@ -286,14 +286,22 @@ class SimpleMediasoupPeerServer {
 
       case "connectWebRtcTransport": {
         logger("Connecting WebRTC transport!");
-        const { transportId, dtlsParameters } = request.data;
-        const transport = this.peers[id].transports[transportId];
 
-        if (!transport) throw new Error(`transport with id "${transportId}" not found`);
+        try {
+          const { transportId, dtlsParameters } = request.data;
+          const transport = this.peers[id].transports[transportId];
 
-        await transport.connect({ dtlsParameters });
+          if (!transport) {
+            throw new Error(`Cannot connect WebRTC transport: transport with id "${transportId}" not found`);
+          }
 
-        callback();
+          await transport.connect({ dtlsParameters });
+
+          callback();
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
 
         break;
       }
@@ -301,8 +309,14 @@ class SimpleMediasoupPeerServer {
       case "produce": {
         logger("Creating server-side producer!");
 
-        const producer = await this.createProducer(id, request.data);
-        callback({ id: producer.id });
+        try {
+          const producer = await this.createProducer(id, request.data);
+          callback({ id: producer.id });
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
+
 
         // update room
 
@@ -311,8 +325,15 @@ class SimpleMediasoupPeerServer {
 
       case "produceData": {
         logger("Creating server-side data producer");
-        const producer = await this.createDataProducer(id, request.data);
-        callback({ id: producer.id });
+
+
+        try {
+          const producer = await this.createDataProducer(id, request.data);
+          callback({ id: producer.id });
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
 
         break;
       }
@@ -859,62 +880,79 @@ class SimpleMediasoupPeerServer {
 
   async createProducer(producingPeerId, data) {
     const { transportId, kind, rtpParameters } = data;
+
+    // add peerId to appData
     let { appData } = data;
     appData = { ...appData, peerId: producingPeerId };
 
-    const transport = this.getTransportForPeer(producingPeerId, transportId);
+    try {
+      const transport = this.getTransportForPeer(producingPeerId, transportId);
 
-    if (!transport) throw new Error(`transport with id "${transportId}" not found`);
+      if (!transport) {
+        throw new Error(`Cannot create producer: transport with id "${transportId}" not found`);
+      }
 
-    const producer = await transport.produce({
-      kind,
-      rtpParameters,
-      appData,
-      // keyFrameRequestDelay: 5000
-    });
+      const producer = await transport.produce({
+        kind,
+        rtpParameters,
+        appData,
+        // keyFrameRequestDelay: 5000
+      });
 
-    // add producer to the peer object
-    this.peers[producingPeerId].producers[producer.id] = {};
-    this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
-      producer;
+      // add producer to the peer object
+      this.peers[producingPeerId].producers[producer.id] = {};
+      this.peers[producingPeerId].producers[producer.id][this.peers[producingPeerId].routerIndex] =
+        producer;
 
-    if (appData.broadcast) {
-      this.broadcastProducer(producingPeerId, producer.id);
+      if (appData.broadcast) {
+        this.broadcastProducer(producingPeerId, producer.id);
+      }
+      return producer;
+
+    } catch (error) {
+      logger("Error in createProducer:", error);
+      throw error;
     }
-
-    return producer;
   }
 
   async createDataProducer(producingPeerId, data) {
     const { transportId, sctpStreamParameters, label, protocol, appData } = data;
 
-    const transport = this.getTransportForPeer(producingPeerId, transportId);
+    try {
 
-    if (!transport) throw new Error(`transport with id "${transportId}" not found`);
+      const transport = this.getTransportForPeer(producingPeerId, transportId);
 
-    const dataProducer = await transport.produceData({
-      sctpStreamParameters,
-      label,
-      protocol,
-      appData,
-    });
+      if (!transport) {
+        throw new Error(`Cannot create data producer: transport with id "${transportId}" not found`);
+      }
 
-    // add producer to the peer object
-    this.peers[producingPeerId].dataProducers[dataProducer.id] = {};
-    this.peers[producingPeerId].dataProducers[dataProducer.id][
-      this.peers[producingPeerId].routerIndex
-    ] = dataProducer;
+      const dataProducer = await transport.produceData({
+        sctpStreamParameters,
+        label,
+        protocol,
+        appData,
+      });
 
-    // // Create a server-side DataConsumer for each Peer.
-    // for (const otherPeer of this._getJoinedPeers({ excludePeer: peer })) {
-    //   this._createDataConsumer({
-    //     dataConsumerPeer: otherPeer,
-    //     dataProducerPeer: peer,
-    //     dataProducer,
-    //   });
-    // }
+      // add producer to the peer object
+      this.peers[producingPeerId].dataProducers[dataProducer.id] = {};
+      this.peers[producingPeerId].dataProducers[dataProducer.id][
+        this.peers[producingPeerId].routerIndex
+      ] = dataProducer;
 
-    return dataProducer;
+      // // Create a server-side DataConsumer for each Peer.
+      // for (const otherPeer of this._getJoinedPeers({ excludePeer: peer })) {
+      //   this._createDataConsumer({
+      //     dataConsumerPeer: otherPeer,
+      //     dataProducerPeer: peer,
+      //     dataProducer,
+      //   });
+      // }
+
+      return dataProducer;
+    } catch (error) {
+      logger("Error in createDataProducer:", error);
+      throw error;
+    }
   }
 
   async broadcastProducer(producingPeerId, producerId) {
