@@ -103,9 +103,9 @@ class SimpleMediasoupPeerServer {
           this.removePeer(socket.id);
         });
 
-        socket.on("mediasoupSignaling", (data, callback) => {
+        socket.on("mediasoupSignaling", async (data, callback) => {
           try {
-            this.handleSocketRequest(socket.id, data, callback);
+            await this.handleSocketRequest(socket.id, data, callback);
           } catch (error) {
             logger("Error in mediasoupSignaling handler:", error);
             if (callback) {
@@ -124,23 +124,36 @@ class SimpleMediasoupPeerServer {
   }
 
   sendSyncDataToAllRooms() {
-    // const allRooms = this.io.of("/").adapter.rooms;
-    const allRooms = Object.keys(this.rooms);
-    // logger("Sending sync data to all rooms:", allRooms);
-    for (const roomId of allRooms) {
-      const syncData = this.getSyncDataForRoom(roomId);
-      const peerIdsInRoom = this.rooms[roomId];
-      if (!syncData) {
-        delete this.rooms[roomId];
-      } else {
+    try {
+      const allRooms = Object.keys(this.rooms);
+      for (const roomId of allRooms) {
+        let syncData;
+        let peerIdsInRoom = this.rooms[roomId];
+        try {
+          syncData = this.getSyncDataForRoom(roomId);
+        } catch (err) {
+          logger("Error building sync data for room", roomId, err);
+          continue;
+        }
+
+        if (!syncData || !Array.isArray(peerIdsInRoom) || peerIdsInRoom.length === 0) {
+          delete this.rooms[roomId];
+          continue;
+        }
+
         peerIdsInRoom.forEach((pid) => {
-          this.peers[pid].socket.emit("mediasoupSignaling", {
-            type: "availableProducers",
-            data: syncData,
-          });
+          try {
+            this.peers[pid]?.socket?.emit("mediasoupSignaling", {
+              type: "availableProducers",
+              data: syncData,
+            });
+          } catch (err) {
+            logger("Error emitting sync data to peer", pid, err);
+          }
         });
-        // logger("sending sync data to room", roomId, ":", syncData);
       }
+    } catch (err) {
+      logger("Error in sendSyncDataToAllRooms:", err);
     }
   }
 
@@ -157,7 +170,6 @@ class SimpleMediasoupPeerServer {
   getSyncDataForRoom(roomId) {
     let syncData = {};
     const peersInRoom = this.rooms[roomId];
-    // const peersInRoom = this.io.sockets.adapter.rooms.get(roomId);
     // if the room no longer exists, return an empty object
     // TODO cleanup rooms as peers exit
     if (!peersInRoom) {
@@ -169,27 +181,20 @@ class SimpleMediasoupPeerServer {
         syncData[peerId] = { producers: {}, dataProducers: {} };
         for (const producerId in this.peers[peerId].producers) {
           let peerRouterIndex = this.peers[peerId].routerIndex;
-          const producer = this.peers[peerId].producers[producerId][peerRouterIndex];
-          syncData[peerId].producers[producerId] = producer.appData;
+          const producer = this.peers[peerId].producers[producerId]?.[peerRouterIndex];
+          if (producer?.appData) {
+            syncData[peerId].producers[producerId] = producer.appData;
+          }
         }
         for (const dataProducerId in this.peers[peerId].dataProducers) {
           let peerRouterIndex = this.peers[peerId].routerIndex;
-          const dataProducer = this.peers[peerId].dataProducers[dataProducerId][peerRouterIndex];
-          syncData[peerId].dataProducers[dataProducerId] = dataProducer.appData;
+          const dataProducer = this.peers[peerId].dataProducers[dataProducerId]?.[peerRouterIndex];
+          if (dataProducer?.appData) {
+            syncData[peerId].dataProducers[dataProducerId] = dataProducer.appData;
+          }
         }
       }
     }
-    // for (const peerId in this.peers) {
-    //   if (this.rooms[roomId].has(peerId)) {
-    //     syncData[peerId] = {};
-    //     for (const producerId in this.peers[peerId].producers) {
-    //       let peerRouterIndex = this.peers[peerId].routerIndex;
-    //       const producer =
-    //         this.peers[peerId].producers[producerId][peerRouterIndex];
-    //       syncData[peerId][producerId] = producer.appData;
-    //     }
-    //   }
-    // }
     return syncData;
   }
 
@@ -279,12 +284,13 @@ class SimpleMediasoupPeerServer {
       }
 
       case "getRouterRtpCapabilities": {
-        const peerRouter = this.getRouterForPeer(id);
-        if (!peerRouter) {
+        try {
+          const peerRouter = this.getRouterForPeer(id);
+          callback({ routerRtpCapabilities: peerRouter.rtpCapabilities });
+        } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
         }
-        callback({ routerRtpCapabilities: peerRouter.rtpCapabilities });
         break;
       }
 
@@ -424,44 +430,59 @@ class SimpleMediasoupPeerServer {
 
       case "pauseConsumer": {
         logger("Pausing consumer!");
-        const consumer = this.getConsumer(id, request.data.producerId);
+        try {
+          const consumer = this.getConsumer(id, request.data.producerId);
 
-        if (!consumer) {
-          console.warn("No consumer found!");
-          break;
+          if (!consumer) {
+            console.warn("No consumer found!");
+            break;
+          }
+          await consumer.pause();
+          callback({ paused: true });
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
         }
-        await consumer.pause();
-        callback({ paused: true });
         break;
       }
 
       case "resumeConsumer": {
         logger("Resuming consumer!");
 
-        const consumer = this.getConsumer(id, request.data.producerId);
+        try {
+          const consumer = this.getConsumer(id, request.data.producerId);
 
-        if (!consumer) {
-          console.warn("No consumer found!");
-          break;
+          if (!consumer) {
+            console.warn("No consumer found!");
+            break;
+          }
+          await consumer.resume();
+          callback();
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
         }
-        await consumer.resume();
-        callback();
 
         break;
       }
 
       case "closeConsumer": {
         logger("Closing consumer!");
-        const consumer = this.getConsumer(id, request.data.producerId);
+        try {
+          const consumer = this.getConsumer(id, request.data.producerId);
 
-        if (!consumer) {
-          console.warn("No consumer found!");
-          break;
+          if (!consumer) {
+            console.warn("No consumer found!");
+            break;
+          }
+
+          this.closeConsumer({ peerId: id, consumer });
+
+          callback();
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
         }
-
-        this.closeConsumer({ peerId: id, consumer });
-
-        callback();
 
         break;
       }
@@ -597,20 +618,42 @@ class SimpleMediasoupPeerServer {
   }
 
   getTransportForPeer(id, transportId) {
-    return this.peers[id].transports[transportId];
+    const transport = this.peers[id]?.transports[transportId];
+    if (!transport) {
+      throw new Error(`Transport with id "${transportId}" not found for peer with id "${id}"`);
+    }
+    return transport;
   }
 
   getRecvTransportForPeer(peerId) {
-    let transports = this.peers[peerId].transports;
+    let transports = this.peers[peerId]?.transports;
+    if (!transports) {
+      throw new Error(`Transports not found for peer with id "${peerId}"`);
+    }
+    let recvTransport = null;
     for (let transportId in transports) {
       let t = transports[transportId];
-      if (t.appData.consuming) return t;
+      if (t?.appData?.consuming) {
+        recvTransport = t;
+        break;
+      }
     }
-    return null;
+    if (!recvTransport) {
+      throw new Error(`Receive transport not found for peer with id "${peerId}"`);
+    }
+    return recvTransport;
   }
 
   getRouterForPeer(peerId) {
-    return this.routers[this.peers[peerId].routerIndex];
+    const routerIndex = this.peers[peerId]?.routerIndex;
+    if (routerIndex === undefined || routerIndex === null) {
+      throw new Error(`Router index not found for peer with id "${peerId}"`);
+    }
+    const router = this.routers[routerIndex];
+    if (!router) {
+      throw new Error(`Router with index "${routerIndex}" not found for peer with id "${peerId}"`);
+    }
+    return router;
   }
 
   getConsumer(peerId, producerId) {
@@ -778,10 +821,6 @@ class SimpleMediasoupPeerServer {
     try {
       const transport = this.getRecvTransportForPeer(consumingPeerId);
 
-      if (!transport) {
-        throw new Error(`No receive transport found for peer with ID ${consumingPeerId}`);
-      }
-
       const consumer = await transport.consume({
         producerId: producer.id,
         rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
@@ -793,13 +832,10 @@ class SimpleMediasoupPeerServer {
 
       // Set Consumer events.
       consumer.on("transportclose", () => {
-        // Remove from its consuming peer's consumers object
-        delete this.peers[consumingPeerId].consumers[producer.id];
+        this.closeConsumer({ peerId: consumingPeerId, consumer });
       });
 
       consumer.on("producerclose", () => {
-        logger("Producer closed! Closing server-side consumer!");
-        // Close the server-side consumer
         this.closeConsumer({ peerId: consumingPeerId, consumer });
       });
 
@@ -827,7 +863,7 @@ class SimpleMediasoupPeerServer {
       await consumer.close();
 
       // tell the peer to close their corresponding consumer
-      this.peers[peerId].socket.emit("mediasoupSignaling", {
+      this.peers[peerId]?.socket?.emit("mediasoupSignaling", {
         type: "consumerClosed",
         data: {
           producingPeerId: consumer.appData.peerId,
@@ -836,6 +872,7 @@ class SimpleMediasoupPeerServer {
       });
 
       // delete reference to this consumer
+      if (!this.peers[peerId] || !this.peers[peerId].consumers) return;
       delete this.peers[peerId].consumers[consumer.producerId];
     } catch (err) {
       console.error("Error in closeConsumer:", err);
@@ -846,10 +883,6 @@ class SimpleMediasoupPeerServer {
     let dataConsumer;
     try {
       const transport = this.getRecvTransportForPeer(consumingPeerId);
-
-      if (!transport) {
-        throw new Error(`No receive transport found for peer with ID ${consumingPeerId}`);
-      }
 
       // create the data consumer
       dataConsumer = await transport.consumeData({
@@ -869,22 +902,14 @@ class SimpleMediasoupPeerServer {
     // Set Consumer events.
     dataConsumer.on("transportclose", () => {
       // Remove from its map.
-      delete this.peers[consumingPeerId].consumers[producer.id];
+      this.closeDataConsumer({ peerId: consumingPeerId, consumer: dataConsumer });
+
     });
 
     dataConsumer.on("producerclose", () => {
       logger("Producer closed! Closing server-side consumer!");
 
-      this.peers[consumingPeerId].socket.emit("mediasoupSignaling", {
-        type: "dataConsumerClosed",
-        data: {
-          producingPeerId: producer.appData.peerId,
-          producerId: producer.id,
-        },
-      });
-
-      delete this.peers[consumingPeerId].consumers[producer.id];
-
+      this.closeDataConsumer({ peerId: consumingPeerId, consumer: dataConsumer });
       // consumerPeer.notify('consumerClosed', { consumerId: consumer.id })
       // 	.catch(() => {});
     });
@@ -908,7 +933,7 @@ class SimpleMediasoupPeerServer {
       await consumer.close();
 
       // tell the peer to close their corresponding consumer
-      this.peers[peerId].socket.emit("mediasoupSignaling", {
+      this.peers[peerId]?.socket?.emit("mediasoupSignaling", {
         type: "dataConsumerClosed",
         data: {
           producingPeerId: consumer.appData.peerId,
@@ -917,9 +942,10 @@ class SimpleMediasoupPeerServer {
       });
 
       // delete reference to this consumer
+      if (!this.peers[peerId] || !this.peers[peerId].dataConsumers) return;
       delete this.peers[peerId].dataConsumers[consumer.producerId];
     } catch (err) {
-      console.log("closeDataConsumer error:", err);
+      console.error("Error in closeDataConsumer:", err);
     }
   }
 
@@ -932,10 +958,6 @@ class SimpleMediasoupPeerServer {
 
     try {
       const transport = this.getTransportForPeer(producingPeerId, transportId);
-
-      if (!transport) {
-        throw new Error(`Cannot create producer: transport with id "${transportId}" not found`);
-      }
 
       const producer = await transport.produce({
         kind,
@@ -966,10 +988,6 @@ class SimpleMediasoupPeerServer {
     try {
 
       const transport = this.getTransportForPeer(producingPeerId, transportId);
-
-      if (!transport) {
-        throw new Error(`Cannot create data producer: transport with id "${transportId}" not found`);
-      }
 
       const dataProducer = await transport.produceData({
         sctpStreamParameters,
@@ -1036,17 +1054,19 @@ class SimpleMediasoupPeerServer {
   }
 
   async createTransportForPeer(id, data) {
-    const { producing, consuming, sctpCapabilities } = data;
-
-    const webRtcTransportOptions = {
-      ...config.mediasoup.webRtcTransportOptions,
-      enableSctp: true,
-      numSctpStreams: sctpCapabilities.numStreams,
-      appData: { producing, consuming },
-    };
-
     try {
-      const transport = await this.getRouterForPeer(id).createWebRtcTransport(
+      const { producing, consuming, sctpCapabilities } = data;
+
+      const webRtcTransportOptions = {
+        ...config.mediasoup.webRtcTransportOptions,
+        enableSctp: true,
+        numSctpStreams: sctpCapabilities.numStreams,
+        appData: { producing, consuming },
+      };
+
+      const router = this.getRouterForPeer(id);
+
+      const transport = await router.createWebRtcTransport(
         webRtcTransportOptions
       );
 
