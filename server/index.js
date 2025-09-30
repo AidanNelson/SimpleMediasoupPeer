@@ -74,6 +74,7 @@ class SimpleMediasoupPeerServer {
   }
 
   async init() {
+    try {
     await this.initializeMediasoupWorkersAndRouters();
 
     this.currentPeerRouterIndex = -1;
@@ -116,7 +117,10 @@ class SimpleMediasoupPeerServer {
 
     setInterval(() => {
       this.sendSyncDataToAllRooms();
-    }, 1000);
+      }, 1000);
+    } catch (error) {
+      console.error("Error initializing SimpleMediasoupPeerServer:", error);
+    }
   }
 
   sendSyncDataToAllRooms() {
@@ -194,9 +198,21 @@ class SimpleMediasoupPeerServer {
     this.routers = [];
 
     for (let i = 0; i < config.mediasoup.numWorkers; i++) {
-      let { worker, router } = await this.startMediasoupWorker();
-      this.workers[i] = worker;
-      this.routers[i] = router;
+      try {
+        const worker = await mediasoup.createWorker(config.mediasoup.workerSettings);
+        worker.on("died", (error) => {
+          console.error("Mediasoup worker died: ", error);
+        });
+
+        const router = await worker.createRouter({
+          mediaCodecs: config.mediasoup.routerOptions.mediaCodecs,
+        });
+        this.workers[i] = worker;
+        this.routers[i] = router;
+      } catch (error) {
+        console.error("Error initializing mediasoup workers and routers:", error);
+        throw error;
+      }
     }
   }
 
@@ -242,18 +258,6 @@ class SimpleMediasoupPeerServer {
 
     // remove from this.peers
     delete this.peers[id];
-  }
-
-  async startMediasoupWorker() {
-    let worker = await mediasoup.createWorker(config.mediasoup.workerSettings);
-    worker.on("died", () => {
-      console.error("mediasoup worker died (this should never happen)");
-      process.exit(1);
-    });
-    const router = await worker.createRouter({
-      mediaCodecs: config.mediasoup.routerOptions.mediaCodecs,
-    });
-    return { worker, router };
   }
 
   async handleSocketRequest(id, request, callback) {
