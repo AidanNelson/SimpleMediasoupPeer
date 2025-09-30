@@ -738,7 +738,7 @@ class SimpleMediasoupPeer {
   }
 
   async createSendTransport() {
-    const sendTransportInfo = await this.socket.request("mediasoupSignaling", {
+    const response = await this.socket.request("mediasoupSignaling", {
       type: "createWebRtcTransport",
       data: {
         forceTcp: false,
@@ -748,107 +748,116 @@ class SimpleMediasoupPeer {
       },
     });
 
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = sendTransportInfo;
+    if (!response || response.error) {
+      console.error("Error creating send transport:", response.error);
+      return;
+    }
 
-    this.sendTransport = this.device.createSendTransport({
-      id,
-      iceParameters,
-      iceCandidates,
-      dtlsParameters,
-      sctpParameters,
-      iceServers: [],
-    });
+    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
 
-    this.sendTransport.on(
-      "connect",
-      async (
-        { dtlsParameters },
-        callback,
-        errback // eslint-disable-line no-shadow
-      ) => {
-        logger("Connecting Send Transport");
-        try {
-          const response = await this.socket.request("mediasoupSignaling", {
-            type: "connectWebRtcTransport",
-            data: {
-              transportId: this.sendTransport.id,
-              dtlsParameters,
-            },
-          });
-          if (!response || response.error) {
-            errback(response.error);
-            return;
+    try {
+      this.sendTransport = this.device.createSendTransport({
+        id,
+        iceParameters,
+        iceCandidates,
+        dtlsParameters,
+        sctpParameters,
+        iceServers: [],
+      });
+
+      this.sendTransport.on(
+        "connect",
+        async (
+          { dtlsParameters },
+          callback,
+          errback // eslint-disable-line no-shadow
+        ) => {
+          logger("Connecting Send Transport");
+          try {
+            const response = await this.socket.request("mediasoupSignaling", {
+              type: "connectWebRtcTransport",
+              data: {
+                transportId: this.sendTransport.id,
+                dtlsParameters,
+              },
+            });
+            if (!response || response.error) {
+              errback(response.error);
+              return;
+            }
+            callback();
+          } catch (error) {
+            errback(error);
           }
-          callback();
-        } catch (error) {
-          errback(error);
         }
-      }
-    );
+      );
 
-    this.sendTransport.on(
-      "produce",
-      async ({ kind, rtpParameters, appData }, callback, errback) => {
-        try {
-          logger("starting to produce");
-          // eslint-disable-next-line no-shadow
-          const response = await this.socket.request("mediasoupSignaling", {
-            type: "produce",
-            data: {
-              transportId: this.sendTransport.id,
-              kind,
-              rtpParameters,
-              appData,
-            },
-          });
+      this.sendTransport.on(
+        "produce",
+        async ({ kind, rtpParameters, appData }, callback, errback) => {
+          try {
+            logger("starting to produce");
+            // eslint-disable-next-line no-shadow
+            const response = await this.socket.request("mediasoupSignaling", {
+              type: "produce",
+              data: {
+                transportId: this.sendTransport.id,
+                kind,
+                rtpParameters,
+                appData,
+              },
+            });
 
-          if (!response || response.error) {
-            errback(response.error);
-            return;
+            if (!response || response.error) {
+              errback(response.error);
+              return;
+            }
+
+            callback({ id: response.id });
+          } catch (error) {
+            errback(error);
           }
-
-          callback({ id: response.id });
-        } catch (error) {
-          errback(error);
         }
-      }
-    );
+      );
 
-    this.sendTransport.on(
-      "producedata",
-      async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
-        try {
-          logger("trying to set up data producer");
-          // eslint-disable-next-line no-shadow
-          const response = await this.socket.request("mediasoupSignaling", {
-            type: "produceData",
-            data: {
-              transportId: this.sendTransport.id,
-              sctpStreamParameters,
-              label,
-              protocol,
-              appData,
-            },
-          });
+      this.sendTransport.on(
+        "producedata",
+        async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
+          try {
+            logger("trying to set up data producer");
+            // eslint-disable-next-line no-shadow
+            const response = await this.socket.request("mediasoupSignaling", {
+              type: "produceData",
+              data: {
+                transportId: this.sendTransport.id,
+                sctpStreamParameters,
+                label,
+                protocol,
+                appData,
+              },
+            });
 
-          if (!response || response.error) {
-            errback(response.error);
-            return;
+            if (!response || response.error) {
+              errback(response.error);
+              return;
+            }
+
+            logger("set up data producer with id:", response.id);
+            callback({ id: response.id });
+          } catch (error) {
+            errback(error);
           }
-
-          logger("set up data producer with id:", response.id);
-          callback({ id: response.id });
-        } catch (error) {
-          errback(error);
         }
-      }
-    );
+      );
 
-    logger("Created send transport!");
+      logger("Created send transport!");
+    } catch (error) {
+      console.error("Error creating send transport:", error);
+    }
   }
 
   async createRecvTransport() {
-    const recvTransportInfo = await this.socket.request("mediasoupSignaling", {
+    const response = await this.socket.request("mediasoupSignaling", {
       type: "createWebRtcTransport",
       data: {
         forceTcp: false,
@@ -858,40 +867,57 @@ class SimpleMediasoupPeer {
       },
     });
 
-    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = recvTransportInfo;
+    if (!response || response.error) {
+      console.error("Error creating recv transport:", response.error);
+      return;
+    }
 
-    this.recvTransport = this.device.createRecvTransport({
-      id,
-      iceParameters,
-      iceCandidates,
-      dtlsParameters,
-      sctpParameters,
-      iceServers: [],
-    });
+    const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response;
 
-    this.recvTransport.on(
-      "connect",
-      (
-        { dtlsParameters },
-        callback,
-        errback // eslint-disable-line no-shadow
-      ) => {
-        logger("Connecting Receive Transport!");
-        this.socket
-          .request("mediasoupSignaling", {
-            type: "connectWebRtcTransport",
-            data: {
-              transportId: this.recvTransport.id,
-              dtlsParameters,
-            },
-          })
-          .then(callback)
-          .catch(errback);
-      }
-    );
+    try {
+      this.recvTransport = this.device.createRecvTransport({
+        id,
+        iceParameters,
+        iceCandidates,
+        dtlsParameters,
+        sctpParameters,
+        iceServers: [],
+      });
 
-    logger("Created receive transport!");
+      this.recvTransport.on(
+        "connect",
+        async (
+          { dtlsParameters },
+          callback,
+          errback // eslint-disable-line no-shadow
+        ) => {
+          logger("Connecting Receive Transport!");
+          try {
+            const response = await this.socket
+              .request("mediasoupSignaling", {
+                type: "connectWebRtcTransport",
+                data: {
+                  transportId: this.recvTransport.id,
+                  dtlsParameters,
+                },
+              })
+            if (!response || response.error) {
+              errback(response.error);
+              return;
+            }
+            callback();
+          } catch (error) {
+            errback(error);
+          }
+        }
+      );
+
+      logger("Created receive transport!");
+    } catch (error) {
+      console.error("Error creating recv transport:", error);
+    }
   }
+
 }
 
 export { SimpleMediasoupPeer };

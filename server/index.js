@@ -279,8 +279,13 @@ class SimpleMediasoupPeerServer {
 
       case "createWebRtcTransport": {
         logger("Creating WebRTC transport!");
-        const callbackData = await this.createTransportForPeer(id, request.data);
-        callback(callbackData);
+        try {
+          const transportInfo = await this.createTransportForPeer(id, request.data);
+          callback(transportInfo);
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
         break;
       }
 
@@ -1021,6 +1026,7 @@ class SimpleMediasoupPeerServer {
       };
     } catch (err) {
       logger(err);
+      throw err;
     }
   }
 }
