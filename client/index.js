@@ -734,8 +734,10 @@ class SimpleMediasoupPeer {
         logger(request.data);
         const { producingPeerId, producerId } = request.data;
 
-        this.consumers[producingPeerId][producerId].close();
-        delete this.consumers[producingPeerId][producerId];
+        if (this.consumers[producingPeerId] && this.consumers[producingPeerId][producerId]) {
+          this.consumers[producingPeerId][producerId].close();
+          delete this.consumers[producingPeerId][producerId];
+        }
 
         break;
       }
@@ -743,11 +745,14 @@ class SimpleMediasoupPeer {
   }
 
   async removePeer(otherPeerId) {
-    for (let producerId in this.consumers[otherPeerId]) {
-      let consumer = this.consumers[otherPeerId][producerId];
-      this.closeConsumer(consumer);
+    if (this.consumers[otherPeerId]) {
+
+      for (let producerId in this.consumers[otherPeerId]) {
+        let consumer = this.consumers[otherPeerId][producerId];
+        this.closeConsumer(consumer);
+      }
+      delete this.consumers[otherPeerId];
     }
-    delete this.consumers[otherPeerId];
   }
 
   closeConsumer(consumer) {
@@ -772,6 +777,14 @@ class SimpleMediasoupPeer {
   add a callback for a given event
   */
   on(event, callback) {
+    if (typeof event !== 'string') {
+      console.error(`Event name must be one of the following: ${this.publiclyExposedEvents.join(', ')}`);
+      return;
+    }
+    if (typeof callback !== 'function') {
+      console.error("Callback must be a function");
+      return;
+    }
     if (this.publiclyExposedEvents.has(event)) {
       this.userDefinedCallbacks[event] = callback;
     } else {
