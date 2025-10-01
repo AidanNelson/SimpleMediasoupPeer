@@ -11,6 +11,7 @@ window.onload = () => {
 function init() {
   mediasoupPeer = new SimpleMediasoupPeer();
   mediasoupPeer.on("track", gotTrack);
+  console.log("joining room");
   mediasoupPeer.joinRoom("broadcastRoom123");
 }
 

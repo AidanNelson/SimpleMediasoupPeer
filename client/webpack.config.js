@@ -12,6 +12,11 @@ module.exports = {
     },
   },
   devServer: {
+    hot: false,
+    liveReload: true,
     port: 9000,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
   },
 };
