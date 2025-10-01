@@ -17,10 +17,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "awaitqueue": "^3.0.2",
+    "awaitqueue": "^3.3.0",
     "debug": "^4.3.4",
     "ip": "^1.1.8",
-    "mediasoup": "^3.14.14",
+    "mediasoup": "^3.19.3",
     "socket.io": "^4.7.4"
   },
   "devDependencies": {
