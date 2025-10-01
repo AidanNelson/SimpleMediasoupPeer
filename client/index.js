@@ -342,7 +342,7 @@ class SimpleMediasoupPeer {
       }
       delete this.tracksToProduce[label];
     } catch (error) {
-      logger("Error removing track:", error);
+      console.error("Error removing track:", error);
     }
   }
 
@@ -416,7 +416,7 @@ class SimpleMediasoupPeer {
           try {
             await producer.close();
           } catch (error) {
-            logger("Error closing producer on track end:", error);
+            console.error("Error closing producer on track end:", error);
           }
           producer = null;
           logger("Track ended.  Closing producer");
@@ -432,7 +432,7 @@ class SimpleMediasoupPeer {
             });
             logger("Producer closed.  Closed server-side producer.");
           } catch (err) {
-            logger("Error closing server-side producer:", err);
+            console.error("Error closing server-side producer:", err);
           }
           producer = null;
           delete this.producers[label];
@@ -489,8 +489,7 @@ class SimpleMediasoupPeer {
         });
       }
     } catch (error) {
-      logger("addDataProducer() | failed:%o", error);
-      console.error("Error adding data producer:", error);
+      console.error("addDataProducer() | failed:%o", error);
     }
   }
 
@@ -621,7 +620,7 @@ class SimpleMediasoupPeer {
             },
           });
         } catch (error) {
-          logger("Error resuming consumer:", error);
+          console.error("Error resuming consumer:", error);
         }
       }
 
@@ -687,7 +686,7 @@ class SimpleMediasoupPeer {
         });
       }
     } catch (error) {
-      logger.error('"newDataConsumer" request failed:%o', error);
+      console.error('"newDataConsumer" request failed:%o', error);
     }
   }
 
@@ -908,7 +907,7 @@ class SimpleMediasoupPeer {
     try {
       this.producers["data"].send(data);
     } catch (error) {
-      logger("DataProducer.send() failed:%o", error);
+      console.error("DataProducer.send() failed:%o", error);
     }
   }
 
@@ -920,7 +919,7 @@ class SimpleMediasoupPeer {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
-      logger("Error creating mediasoup device:", err);
+      console.error("Error creating mediasoup device:", err);
       throw err;
     }
   }
@@ -936,7 +935,7 @@ class SimpleMediasoupPeer {
       }
       await this.device.load({ routerRtpCapabilities: response.routerRtpCapabilities });
     } catch (error) {
-      logger("Error connecting to mediasoup router:", error);
+      console.error("Error connecting to mediasoup router:", error);
       throw error;
     }
   }
@@ -989,7 +988,7 @@ class SimpleMediasoupPeer {
               callback();
               logger("Send transport connected");
             } catch (error) {
-              logger("Error connecting send transport:", error);
+              console.error("Error connecting send transport:", error);
               errback(error);
             }
           }
@@ -1014,7 +1013,7 @@ class SimpleMediasoupPeer {
               logger(`Created ${kind} producer with id: ${response.id}`);
 
             } catch (error) {
-              logger("Error creating producer:", error);
+              console.error("Error creating producer:", error);
               errback(error);
             }
           }
@@ -1040,7 +1039,7 @@ class SimpleMediasoupPeer {
               logger("Created dataproducer with id:", response.id);
 
             } catch (error) {
-              logger("Error creating data producer:", error);
+              console.error("Error creating data producer:", error);
               errback(error);
             }
           }
@@ -1048,7 +1047,7 @@ class SimpleMediasoupPeer {
       }
 
     } catch (error) {
-      logger("Error creating send transport:", error);
+      console.error("Error creating send transport:", error);
       throw error;
     }
   }
@@ -1102,7 +1101,7 @@ class SimpleMediasoupPeer {
                 });
               callback();
             } catch (error) {
-              logger("Error connecting receive transport:", error);
+              console.error("Error connecting receive transport:", error);
               errback(error);
             }
           }
@@ -1111,7 +1110,7 @@ class SimpleMediasoupPeer {
 
       logger("Created receive transport!");
     } catch (error) {
-      logger("Error creating recv transport:", error);
+      console.error("Error creating recv transport:", error);
       throw error;
     }
   }
