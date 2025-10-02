@@ -1,6 +1,6 @@
 {
   "name": "simple-mediasoup-peer-server",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Server code for simple mediasoup peer: a way to create video-enabled applications on top of the mediasoup selective forwarding unit.",
   "contributors": [
     "Aidan Nelson <raftcat@proton.me> (https://aidanjnelson.com)"
