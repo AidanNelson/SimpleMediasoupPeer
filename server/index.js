@@ -76,6 +76,7 @@ class SimpleMediasoupPeerServer {
   async init() {
     try {
       logger("Initializing SimpleMediasoupPeerServer!");
+      logger("Config: ", JSON.stringify(config, null, 2));
       await this.initializeMediasoupWorkersAndRouters();
 
       this.currentPeerRouterIndex = -1;

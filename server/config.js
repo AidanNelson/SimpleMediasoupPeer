@@ -83,11 +83,28 @@ const config = {
     // libmediasoupclient).
     // See https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions
     webRtcTransportOptions: {
-      listenIps: [
+
+      listenInfos: [
         {
-          ip: process.env.LISTEN_IP || LOCAL_IP_ADDRESS || "1.2.3.4",
-          announcedIp: process.env.ANNOUNCED_IP || null,
-        },
+					protocol         : 'udp',
+					ip               : process.env.LISTEN_IP || LOCAL_IP_ADDRESS || '0.0.0.0',
+					...(process.env.ANNOUNCED_IP ? { announcedAddress : process.env.ANNOUNCED_IP } : {}),
+					portRange        :
+					{
+						min : process.env.MIN_PORT || 40000,
+						max : process.env.MAX_PORT || 49999,
+					}
+				},
+				{
+					protocol         : 'tcp',
+					ip               : process.env.LISTEN_IP || LOCAL_IP_ADDRESS || '0.0.0.0',  
+					...(process.env.ANNOUNCED_IP ? { announcedAddress : process.env.ANNOUNCED_IP } : {}),
+					portRange        :
+					{
+						min : process.env.MIN_PORT || 40000,
+						max : process.env.MAX_PORT || 49999,
+					}
+				}
       ],
       initialAvailableOutgoingBitrate: 1000000,
       minimumAvailableOutgoingBitrate: 600000,
