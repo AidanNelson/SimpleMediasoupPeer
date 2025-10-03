@@ -262,12 +262,11 @@ class SimpleMediasoupPeer {
 
       for (const label in this.tracksToProduce) {
         const track = this.tracksToProduce[label].track;
-        const broadcast = this.tracksToProduce[label].broadcast;
         const customEncodings = this.tracksToProduce[label].customEncodings;
         if (track.readyState !== "live") {
           console.warn("Previously added track is not live, skipping");
         } else {
-          this.addProducer(track, label, broadcast, customEncodings);
+          this.addProducer(this.tracksToProduce[label]);
         }
       }
 
@@ -280,14 +279,41 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addTrack(track, label, broadcast = false, customEncodings = false) {
-    this.tracksToProduce[label] = {
-      track,
-      broadcast,
-      customEncodings,
-    };
+  async addTrack({ track, label, customEncodings = {}, customCodecOptions = {} }) {
     try {
-      await this.addProducer(track, label, broadcast, customEncodings);
+      if (!track || !label) {
+        throw new Error("Track and label are required");
+      }
+
+      if (track.readyState !== "live") {
+        throw new Error("Track is not live");
+      }
+
+      if (this.producers[label] && !this.producers[label].closed) {
+        logger(`Already producing "${label}" - swapping track...`);
+        try {
+          this.producers[label].replaceTrack({ track });
+          this.tracksToProduce[label] = {
+            track,
+            label,
+            customEncodings,
+            customCodecOptions,
+          };
+          return;
+        } catch (error) {
+          console.error(`Error replacing track for ${label}:`, error);
+        }
+      }
+
+      this.tracksToProduce[label] = {
+        track,
+        label,
+        customEncodings,
+        customCodecOptions,
+      };
+
+      await this.addProducer(this.tracksToProduce[label]);
+
     } catch (error) {
       console.error("Error adding producer for track:", error);
     }
@@ -308,76 +334,60 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addProducer(track, label, broadcast, customEncodings) {
+  async addProducer({ track, label, customEncodings, customCodecOptions }) {
     let producer;
 
-    console.log("Adding producer", label, track, broadcast, customEncodings);
-    if (track.readyState !== "live") {
-      throw new Error("Track is not live");
-      return;
-    }
-
-    if (this.producers[label] && !this.producers[label].closed) {
-      logger(`Already producing ${label}! Swapping track!`);
-      try {
-        this.producers[label].replaceTrack({ track });
-        return;
-      } catch (error) {
-        console.error(`Error replacing track for ${label}:`, error);
-        // Continue with creating new producer
-      }
-    }
+    console.log("Adding producer", label, track, customEncodings, customCodecOptions);
 
     try {
       if (!this.sendTransport) {
         throw new Error("Send transport not available");
       }
 
-      if (track.kind === "video") {
-        let encodings = [
-          { maxBitrate: 500000 }, // 0.5Mbps
-        ];
+      const DEFAULT_VIDEO_ENCODINGS = [{ maxBitrate: 500000 }];
+      const DEFAULT_AUDIO_ENCODINGS = [{ maxBitrate: 256000 }]; // 256kbps is the maximum bitrate for opus audio 
 
-        if (customEncodings) {
-          encodings = customEncodings;
-        }
+      const encodings = track.kind === "video" ?
+        { ...DEFAULT_VIDEO_ENCODINGS, ...customEncodings } :
+        { ...DEFAULT_AUDIO_ENCODINGS, ...customEncodings };
 
-        producer = await this.sendTransport.produce({
-          track: track,
-          stopTracks: false,
-          encodings,
-          codecOptions: {
-            videoGoogleStartBitrate: 1000,
-          },
-          appData: {
-            label,
-            broadcast,
-          },
-        });
-      } else if (track.kind === "audio") {
-        let encodings = [
-          { maxBitrate: 64000 }, // 64 kbps
-        ];
+      const DEFAULT_VIDEO_CODEC_OPTIONS = { videoGoogleStartBitrate: 1000 };
 
-        if (customEncodings) {
-          encodings = customEncodings;
-        }
+      const DEFAULT_AUDIO_CODEC_OPTIONS = {
+        opusStereo: true, // enable stereo opus for stereo sources
+        opusDtx: false, // dtx means that silent audio is not sent, this option being off means that all audio is sent, even moments of silence
+        opusFec: true, // FEC is Forward Error Correction, this option being on means that the audio is sent with a small amount of extra data to help the receiver recover from packet loss
+        opusNack: false, // NACK puts onus on sender to resend lost packets. Leave this off to protect sender in broadcast scenarios
+        opusMaxAverageBitrate: 64000, // this is the maximum bitrate for opus audio, it is set to 128kbps by default
+      };
 
-        producer = await this.sendTransport.produce({
-          track: track,
-          stopTracks: false,
-          encodings,
-          appData: {
-            label,
-            broadcast,
-          },
-        });
-      }
+
+
+      const codecOptions = track.kind === "video" ?
+        { ...DEFAULT_VIDEO_CODEC_OPTIONS, ...customCodecOptions } :
+        { ...DEFAULT_AUDIO_CODEC_OPTIONS, ...customCodecOptions };
+
+      const appData = {
+        label,
+      };
+
+      const produceOptions = {
+        track,
+        stopTracks: false, // do not end the track when the producer is closed -- in case we have a disconnection and reconnection
+        encodings,
+        codecOptions,
+        appData,
+      };
+      producer = await this.sendTransport.produce(produceOptions);
 
       if (producer) {
         const stableProducerId = producer.id; // capture id before any potential nulling
-        producer.on("transportclose", () => {
-          producer = null;
+        producer.on("transportclose", async () => {
+          try {
+            await producer.close();
+          } catch (error) {
+            console.error("Error closing producer on transport close:", error);
+          }
           logger("transport closed");
         });
 
@@ -399,9 +409,10 @@ class SimpleMediasoupPeer {
                 producerId: stableProducerId,
               },
             });
+
             logger("Producer closed.  Closed server-side producer.");
           } catch (err) {
-            console.error("Error closing server-side producer:", err);
+            console.error("Error after producer close:", err);
           }
           producer = null;
           delete this.producers[label];
