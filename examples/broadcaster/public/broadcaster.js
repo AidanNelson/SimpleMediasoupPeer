@@ -7,10 +7,12 @@ let customVideoEncodings = [{ scaleResolutionDownBy: 1, maxBitrate: 500000 }];
 let customAudioEncodings = [{ maxBitrate: 256000 }];
 
 async function startBroadcast() {
-  let videoTrack = localCam.getVideoTracks()[0];
-  mediasoupPeer.addTrack(videoTrack, "video-broadcast", true, customVideoEncodings);
+  // let videoTrack = localCam.getVideoTracks()[0];
+  // mediasoupPeer.addTrack({ track: videoTrack, label: "video-broadcast", customEncodings: customVideoEncodings });
   let audioTrack = localCam.getAudioTracks()[0];
-  mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true, customAudioEncodings);
+  console.log("Adding audio track");
+  console.log(audioTrack);
+  mediasoupPeer.addTrack({ track: audioTrack, label: "audio-broadcast", customEncodings: customAudioEncodings });
 }
 
 async function main() {
@@ -19,7 +21,16 @@ async function main() {
   mediasoupPeer = new SimpleMediasoupPeer();
   mediasoupPeer.joinRoom("broadcastRoom123");
 
-  await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: {
+      // sampleRate: 48000,
+      // channelCount: 1,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }
+  });
   getDevices();
 
   document.getElementById("startBroadcast").addEventListener(
@@ -82,18 +93,18 @@ function gotDevices(deviceInfos) {
 function gotStream(stream) {
   localCam = stream; // make stream available to console
 
-  const videoTrack = localCam.getVideoTracks()[0];
+  // const videoTrack = localCam.getVideoTracks()[0];
 
   // add video stream to DOM for local testing
   // don't add audio to avoid feedback
-  let videoStream = new MediaStream([videoTrack]);
-  if ("srcObject" in videoElement) {
-    videoElement.srcObject = videoStream;
-  } else {
-    videoElement.src = window.URL.createObjectURL(videoStream);
-  }
+  // let videoStream = new MediaStream([videoTrack]);
+  // if ("srcObject" in videoElement) {
+  //   videoElement.srcObject = videoStream;
+  // } else {
+  //   videoElement.src = window.URL.createObjectURL(videoStream);
+  // }
 
-  videoElement.play();
+  // videoElement.play();
 
   // Refresh button list in case labels have become available
   return navigator.mediaDevices.enumerateDevices();

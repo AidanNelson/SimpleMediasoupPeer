@@ -279,7 +279,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addTrack({ track, label, customEncodings = {}, customCodecOptions = {} }) {
+  async addTrack({ track, label, customEncodings = [], customCodecOptions = {} }) {
     try {
       if (!track || !label) {
         throw new Error("Track and label are required");
@@ -345,20 +345,21 @@ class SimpleMediasoupPeer {
       }
 
       const DEFAULT_VIDEO_ENCODINGS = [{ maxBitrate: 500000 }];
-      const DEFAULT_AUDIO_ENCODINGS = [{ maxBitrate: 256000 }]; // 256kbps is the maximum bitrate for opus audio 
+      const DEFAULT_AUDIO_ENCODINGS = [{ maxBitrate: 512000 }]; // 256kbps is the maximum bitrate for opus audio 
 
-      const encodings = track.kind === "video" ?
-        { ...DEFAULT_VIDEO_ENCODINGS, ...customEncodings } :
-        { ...DEFAULT_AUDIO_ENCODINGS, ...customEncodings };
+      const encodings = customEncodings.length > 0 ? customEncodings : track.kind === "video" ?
+        DEFAULT_VIDEO_ENCODINGS :
+        DEFAULT_AUDIO_ENCODINGS;
 
       const DEFAULT_VIDEO_CODEC_OPTIONS = { videoGoogleStartBitrate: 1000 };
 
       const DEFAULT_AUDIO_CODEC_OPTIONS = {
-        opusStereo: true, // enable stereo opus for stereo sources
+        opusStereo: false, // enable stereo opus for stereo sources
         opusDtx: false, // dtx means that silent audio is not sent, this option being off means that all audio is sent, even moments of silence
         opusFec: true, // FEC is Forward Error Correction, this option being on means that the audio is sent with a small amount of extra data to help the receiver recover from packet loss
         opusNack: false, // NACK puts onus on sender to resend lost packets. Leave this off to protect sender in broadcast scenarios
-        opusMaxAverageBitrate: 64000, // this is the maximum bitrate for opus audio, it is set to 128kbps by default
+        opusMaxAverageBitrate: 192000, // this is the maximum bitrate for opus audio, it is set to 128kbps by default
+        opusPtime: 20
       };
 
 
@@ -584,6 +585,15 @@ class SimpleMediasoupPeer {
         const stableConsumerId = consumer.id; // capture id before any potential nulling
         const stableProducerId = consumer.producerId; // capture id before any potential nulling
         logger("Created consumer:", consumer);
+        const interval = setInterval(async () => {
+          console.log("Consumer Stats:");
+          if (consumer.closed) clearInterval(interval);
+          const rtcStats = await consumer.getStats();
+          rtcStats.forEach(stat => {
+            console.log(stat.type, stat.id, stat);
+          });
+          console.log("--------------------------------");
+        }, 5000);
 
         this.consumers[peerId][producerId] = consumer;
 
