@@ -1088,9 +1088,17 @@ class SimpleMediasoupPeerServer {
         logger('WebRtcTransport "sctpstatechange" event [sctpState:%s]', sctpState);
       });
 
-      transport.on("dtlsstatechange", (dtlsState) => {
-        if (dtlsState === "failed" || dtlsState === "closed")
+      transport.on("dtlsstatechange", async (dtlsState) => {
+        if (dtlsState === "failed" || dtlsState === "closed") {
           logger('WebRtcTransport "dtlsstatechange" event [dtlsState:%s]', dtlsState);
+          // tell peer to reset their connection
+          // this.peers[id].socket.emit("mediasoupSignaling", {
+          //   type: "resetConnection",
+          //   data: {},
+          // });
+          // await this.removePeer(id);
+          
+        }
       });
 
       this.peers[id].transports[transport.id] = transport;

@@ -1,44 +1,40 @@
 let socket;
 let mediasoupPeer;
 
+
 window.onload = () => {
-  document.getElementById("startButton").addEventListener("click", () => {
-    document.getElementById("startButton").style.display = "none";
-    init();
-  });
+  init();
 };
 
 function init() {
   mediasoupPeer = new SimpleMediasoupPeer();
   mediasoupPeer.on("track", gotTrack);
   mediasoupPeer.joinRoom("broadcastRoom123");
+  window.smp = mediasoupPeer;
 }
 
 //*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//
 
-function gotTrack({ track, peerId, label }) {
+function gotTrack({ track, peerId, label, pause, resume }) {
   console.log(`Got track of kind ${label} from ${peerId}`);
 
-  let videoEl = document.getElementById( "broadcast_video");
-  let audioEl = document.getElementById( "broadcast_audio");
+  let videoEl = document.getElementById("broadcast_video");
+  let pauseButton = document.getElementById("pauseButton");
+  let resumeButton = document.getElementById("resumeButton");
+  pauseButton.addEventListener("click", () => {
+    pause();
+  });
+  resumeButton.addEventListener("click", () => {
+    resume();
+  });
 
   if (track.kind === "video") {
     videoEl.srcObject = null;
     videoEl.srcObject = new MediaStream([track]);
   }
-  if (track.kind === "audio") {
-    audioEl.srcObject = null;
-    audioEl.srcObject = new MediaStream([track]);
-  }
-
 
   videoEl.onloadedmetadata = (e) => {
     videoEl.play().catch((e) => {
-      console.log("Play Error: " + e);
-    });
-  };
-  audioEl.onloadedmetadata = (e) => {
-    audioEl.play().catch((e) => {
       console.log("Play Error: " + e);
     });
   };

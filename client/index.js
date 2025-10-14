@@ -673,7 +673,6 @@ class SimpleMediasoupPeer {
       }
 
       case "createConsumer": {
-        console.log("createConsumer", request.data);
         this.createConsumer(request.data);
         break;
       }
@@ -693,6 +692,19 @@ class SimpleMediasoupPeer {
           delete this.consumers[producingPeerId][producerId];
         }
 
+        break;
+      }
+
+      case "resetConnection": {
+        try {
+          console.log("Resetting connection");
+          await this.disconnectFromMediasoup();
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+          console.log("reconnecting to mediasoup");
+          await this.initializeMediasoupConnection();
+        } catch (error) {
+          console.error("Error reconnecting to mediasoup:", error);
+        }
         break;
       }
     }
@@ -1024,6 +1036,11 @@ class SimpleMediasoupPeer {
             }
           }
         );
+
+        this.recvTransport.on('dtlsstatechange', state => {
+          console.log('DTLS state:', state);
+        });
+        
       }
 
       logger("Created receive transport!");
