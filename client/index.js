@@ -462,52 +462,52 @@ class SimpleMediasoupPeer {
     }
   }
 
-  ensureConnectedToDesiredPeerConnections() {
-    // console.log("ensure connections");
-    // console.log("latest available producers:", this.latestAvailableProducers);
-    // console.log("desired connections:", this.desiredPeerConnections);
+  // ensureConnectedToDesiredPeerConnections() {
+  //   // console.log("ensure connections");
+  //   // console.log("latest available producers:", this.latestAvailableProducers);
+  //   // console.log("desired connections:", this.desiredPeerConnections);
 
-    if (this.latestAvailableProducers && typeof this.latestAvailableProducers === 'object') {
-      for (const peerId in this.latestAvailableProducers) {
-        if (peerId === this.socket.id) continue; // ignore our own streams
+  //   if (this.latestAvailableProducers && typeof this.latestAvailableProducers === 'object') {
+  //     for (const peerId in this.latestAvailableProducers) {
+  //       if (peerId === this.socket.id) continue; // ignore our own streams
 
-        // check all their producers
-        if (this.latestAvailableProducers[peerId].producers) {
-          for (const producerId in this.latestAvailableProducers[peerId].producers) {
-            const shouldConsume =
-              this.desiredPeerConnections.has(peerId) ||
-              this.latestAvailableProducers[peerId].producers[producerId].broadcast ||
-              this.options.autoConnect;
+  //       // check all their producers
+  //       if (this.latestAvailableProducers[peerId].producers) {
+  //         for (const producerId in this.latestAvailableProducers[peerId].producers) {
+  //           const shouldConsume =
+  //             this.desiredPeerConnections.has(peerId) ||
+  //             this.latestAvailableProducers[peerId].producers[producerId].broadcast ||
+  //             this.options.autoConnect;
 
-            if (shouldConsume) {
-              const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-              if (!consumer) {
-                this.requestConsumer(peerId, producerId);
-              }
-            }
-          }
-        }
+  //           if (shouldConsume) {
+  //             const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
+  //             if (!consumer) {
+  //               this.requestConsumer(peerId, producerId);
+  //             }
+  //           }
+  //         }
+  //       }
 
-        // check all available data producers
-        if (this.latestAvailableProducers[peerId].dataProducers) {
-          for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
-            const shouldConsume =
-              this.desiredPeerConnections.has(peerId) ||
-              this.latestAvailableProducers[peerId].dataProducers[dataProducerId].broadcast ||
-              this.options.autoConnect;
+  //       // check all available data producers
+  //       if (this.latestAvailableProducers[peerId].dataProducers) {
+  //         for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
+  //           const shouldConsume =
+  //             this.desiredPeerConnections.has(peerId) ||
+  //             this.latestAvailableProducers[peerId].dataProducers[dataProducerId].broadcast ||
+  //             this.options.autoConnect;
 
-            if (shouldConsume) {
-              const dataConsumer =
-                this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
-              if (!dataConsumer) {
-                this.requestDataConsumer(peerId, dataProducerId);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  //           if (shouldConsume) {
+  //             const dataConsumer =
+  //               this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
+  //             if (!dataConsumer) {
+  //               this.requestDataConsumer(peerId, dataProducerId);
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   async requestConsumer(producingPeerId, producerId) {
     try {
@@ -655,10 +655,10 @@ class SimpleMediasoupPeer {
     }
   }
 
-  updatePeersFromSyncData(syncData) {
-    this.latestAvailableProducers = syncData;
-    this.ensureConnectedToDesiredPeerConnections();
-  }
+  // updatePeersFromSyncData(syncData) {
+  //   this.latestAvailableProducers = syncData;
+  //   this.ensureConnectedToDesiredPeerConnections();
+  // }
 
   async handleSocketMessage(request) {
     switch (request.type) {
@@ -679,11 +679,12 @@ class SimpleMediasoupPeer {
       }
 
       case "availableProducers": {
-        this.updatePeersFromSyncData(request.data);
+        // this.updatePeersFromSyncData(request.data);
         break;
       }
 
       case "createConsumer": {
+        console.log("createConsumer", request.data);
         this.createConsumer(request.data);
         break;
       }
