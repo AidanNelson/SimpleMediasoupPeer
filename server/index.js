@@ -117,47 +117,47 @@ class SimpleMediasoupPeerServer {
         });
       });
 
-      setInterval(() => {
-        this.sendSyncDataToAllRooms();
-      }, 1000);
+      // setInterval(() => {
+      //   this.sendSyncDataToAllRooms();
+      // }, 1000);
     } catch (error) {
       console.error("Error initializing SimpleMediasoupPeerServer:", error);
     }
   }
 
-  sendSyncDataToAllRooms() {
-    try {
-      const allRooms = Object.keys(this.rooms);
-      for (const roomId of allRooms) {
-        let syncData;
-        let peerIdsInRoom = this.rooms[roomId];
-        try {
-          syncData = this.getSyncDataForRoom(roomId);
-        } catch (err) {
-          logger("Error building sync data for room", roomId, err);
-          continue;
-        }
+  // sendSyncDataToAllRooms() {
+  //   try {
+  //     const allRooms = Object.keys(this.rooms);
+  //     for (const roomId of allRooms) {
+  //       let syncData;
+  //       let peerIdsInRoom = this.rooms[roomId];
+  //       try {
+  //         syncData = this.getSyncDataForRoom(roomId);
+  //       } catch (err) {
+  //         logger("Error building sync data for room", roomId, err);
+  //         continue;
+  //       }
 
-        if (!syncData || !Array.isArray(peerIdsInRoom) || peerIdsInRoom.length === 0) {
-          delete this.rooms[roomId];
-          continue;
-        }
+  //       if (!syncData || !Array.isArray(peerIdsInRoom) || peerIdsInRoom.length === 0) {
+  //         delete this.rooms[roomId];
+  //         continue;
+  //       }
 
-        peerIdsInRoom.forEach((pid) => {
-          try {
-            this.peers[pid]?.socket?.emit("mediasoupSignaling", {
-              type: "availableProducers",
-              data: syncData,
-            });
-          } catch (err) {
-            logger("Error emitting sync data to peer", pid, err);
-          }
-        });
-      }
-    } catch (err) {
-      logger("Error in sendSyncDataToAllRooms:", err);
-    }
-  }
+  //       peerIdsInRoom.forEach((pid) => {
+  //         try {
+  //           this.peers[pid]?.socket?.emit("mediasoupSignaling", {
+  //             type: "availableProducers",
+  //             data: syncData,
+  //           });
+  //         } catch (err) {
+  //           logger("Error emitting sync data to peer", pid, err);
+  //         }
+  //       });
+  //     }
+  //   } catch (err) {
+  //     logger("Error in sendSyncDataToAllRooms:", err);
+  //   }
+  // }
 
   /*
     Returns an object structured as follows:
@@ -515,13 +515,13 @@ class SimpleMediasoupPeerServer {
     }
   }
 
-  addPeerToRoom({ peerId, roomId }) {
+  async addPeerToRoom({ peerId, roomId }) {
     logger(`Adding peer ${peerId} to join room ${roomId}.`);
 
     const existingRoomId = this.peers[peerId].room;
     if (existingRoomId) {
       logger(`Peer is already in room ${existingRoomId}.`);
-      this.removePeerFromRoom({ peerId, roomId: existingRoomId });
+      await this.removePeerFromRoom({ peerId, roomId: existingRoomId });
     }
 
     // if we haven't seen this room before, create it
@@ -534,13 +534,13 @@ class SimpleMediasoupPeerServer {
     logger("existing peers in room ", roomId, ": ", existingPeerIds);
 
     // tell everyone else that this peer just joined
-    existingPeerIds.forEach((existingPeerId) => {
+    for (const existingPeerId of existingPeerIds) {
       console.log("telling", existingPeerId, "about new peer:", peerId);
       this.peers[existingPeerId]?.socket.emit("mediasoupSignaling", {
         type: "peerConnection",
         data: [peerId],
       });
-    });
+    }
 
     // add peer to this room:
     this.rooms[roomId].push(peerId);
@@ -552,6 +552,41 @@ class SimpleMediasoupPeerServer {
         type: "peerConnection",
         data: existingPeerIds,
       });
+    }
+
+    // create consumers for each existing peer
+    for (const existingPeerId of existingPeerIds) {
+      const producers = this.peers[existingPeerId].producers;
+      for (const producerId in producers) {
+        try {
+          const consumer = await this.createConsumerFromProducerOrPipeProducer(
+            peerId,
+            existingPeerId,
+            producerId
+          );
+
+          const consumerInfo = {
+            peerId: existingPeerId,
+            producerId: consumer.producerId,
+            id: consumer.id,
+            kind: consumer.kind,
+            rtpParameters: consumer.rtpParameters,
+            type: consumer.type,
+            appData: consumer.appData,
+            producerPaused: consumer.producerPaused,
+          };
+
+          // send the consumer info to the consuming peer
+          this.peers[peerId].socket.emit("mediasoupSignaling", {
+            type: "createConsumer",
+            data: consumerInfo,
+          });
+        } catch (error) {
+          console.error("Error:", error);
+        }
+
+        // await this.createConsumersForProducer(existingPeerId, producerId);
+      }
     }
   }
 
@@ -663,77 +698,44 @@ class SimpleMediasoupPeerServer {
 
   /*
     Given a consumingPeerId, a producingPeerId and a producerId, this function will 
-    automatically get the corresponding producer or create a pipe producer if needed, 
+    automatically get the corresponding producer or create a pipe producer as needed, 
     then call this.createConsumer to create the corresponding consumer.
     */
-  async getOrCreateConsumerForPeer(consumingPeerId, producingPeerId, producerId) {
+  async createConsumerFromProducerOrPipeProducer(consumingPeerId, producingPeerId, producerId) {
     try {
-      const existingConsumer = this.peers[consumingPeerId]?.consumers?.[producerId];
+      // Validate peers exist
+      const consumingPeer = this.peers[consumingPeerId];
+      const producingPeer = this.peers[producingPeerId];
+      if (!consumingPeer) throw new Error(`Consuming peer ${consumingPeerId} not found`);
+      if (!producingPeer) throw new Error(`Producing peer ${producingPeerId} not found`);
 
-      if (existingConsumer) {
-        logger("Already consuming!");
-        return existingConsumer;
+      // first check whether the producer or one of its pipe producers exists
+      // on the consuming peer's router:
+      const consumingPeerRouterIndex = consumingPeer.routerIndex;
+
+      const producerMapForPeer = producingPeer.producers[producerId];
+      if (!producerMapForPeer) {
+        throw new Error(
+          `Producer ${producerId} not found for producing peer ${producingPeerId}`
+        );
       }
 
-      logger("Creating new consumer!");
+      let producerOrPipeProducer = producerMapForPeer[consumingPeerRouterIndex];
+      if (!producerOrPipeProducer) {
+        throw new Error(`Producer or pipe producer not found for producing peer ${producingPeerId}`);
+      }
 
-      // use our queue to avoid multiple peers requesting the same pipeProducer
-      // at the same time
-      return await this.queue.push(async () => {
-        try {
-          // Validate peers exist
-          const consumingPeer = this.peers[consumingPeerId];
-          const producingPeer = this.peers[producingPeerId];
-          if (!consumingPeer) throw new Error(`Consuming peer ${consumingPeerId} not found`);
-          if (!producingPeer) throw new Error(`Producing peer ${producingPeerId} not found`);
+      const newConsumer = await this.createConsumer(consumingPeerId, producerOrPipeProducer);
 
-          // first check whether the producer or one of its pipe producers exists
-          // on the consuming peer's router:
-          const consumingPeerRouterIndex = consumingPeer.routerIndex;
+      if (!newConsumer) return null;
 
-          const producerMapForPeer = producingPeer.producers[producerId];
-          if (!producerMapForPeer) {
-            throw new Error(
-              `Producer ${producerId} not found for producing peer ${producingPeerId}`
-            );
-          }
+      // add new consumer to the consuming peer's consumers object:
+      this.peers[consumingPeerId].consumers[producerId] = newConsumer;
 
-          let producerOrPipeProducer = producerMapForPeer[consumingPeerRouterIndex];
-          logger("Current producer: ", !!producerOrPipeProducer);
+      return newConsumer;
 
-          // if (!producerOrPipeProducer) {
-          //   // if it doesn't exist, create a new pipe producer
-          //   const producingRouterIndex = producingPeer.routerIndex;
-          //   logger(
-          //     `Creating pipe producer ID ${producerId} from router ${producingRouterIndex} to peer ${consumingPeerId} in router ${consumingPeerRouterIndex}!`
-          //   );
-
-          //   const { pipeProducer } = await this.routers[producingRouterIndex].pipeToRouter({
-          //     producerId: producerId,
-          //     router: this.routers[consumingPeerRouterIndex],
-          //   });
-
-          //   // add the pipe producer to the producing peer's object of producers:
-          //   producingPeer.producers[producerId][consumingPeerRouterIndex] = pipeProducer;
-
-          //   producerOrPipeProducer = pipeProducer;
-          // }
-
-          const newConsumer = await this.createConsumer(consumingPeerId, producerOrPipeProducer);
-
-          if (!newConsumer) return null;
-
-          // add new consumer to the consuming peer's consumers object:
-          this.peers[consumingPeerId].consumers[producerId] = newConsumer;
-
-          return newConsumer;
-        } catch (err) {
-          logger("Error in getOrCreateConsumerForPeer await queue task:", err);
-          throw err;
-        }
-      });
     } catch (err) {
-      logger("Error in getOrCreateConsumerForPeer:", err);
+      logger("Error in createConsumerFromProducerOrPipeProducer:", err);
       throw err;
     }
   }
@@ -983,7 +985,8 @@ class SimpleMediasoupPeerServer {
         this.peers[producingPeerId].producers[producer.id][consumingRouterIndex] = pipeProducer;
       }
 
-      await this.broadcastProducer(producingPeerId, producer.id);
+      // broadcast the producer to all other peers in the room
+      await this.createConsumersForProducer(producingPeerId, producer.id);
 
       return producer;
 
@@ -1029,14 +1032,13 @@ class SimpleMediasoupPeerServer {
     }
   }
 
-  async broadcastProducer(producingPeerId, producerId) {
+  async createConsumersForProducer(producingPeerId, producerId) {
     // automatically create consumers for every other peer to consume this producer
-
     const peersInRoom = this.rooms[this.peers[producingPeerId].room];
     for (const consumingPeerId of peersInRoom) {
       if (consumingPeerId !== producingPeerId) {
         try {
-          const consumer = await this.getOrCreateConsumerForPeer(
+          const consumer = await this.createConsumerFromProducerOrPipeProducer(
             consumingPeerId,
             producingPeerId,
             producerId
@@ -1059,7 +1061,7 @@ class SimpleMediasoupPeerServer {
             data: consumerInfo,
           });
         } catch (error) {
-          console.error("Error in broadcastProducer:", error);
+          console.error("Error in createConsumersForProducer:", error);
         }
       }
     }

@@ -509,22 +509,22 @@ class SimpleMediasoupPeer {
   //   }
   // }
 
-  async requestConsumer(producingPeerId, producerId) {
-    try {
-      if (!this.consumers[producingPeerId]) {
-        this.consumers[producingPeerId] = {};
-      }
-      await this.socket.request("mediasoupSignaling", {
-        type: "createConsumer",
-        data: {
-          producingPeerId,
-          producerId,
-        },
-      });
-    } catch (error) {
-      console.error("Error requesting consumer:", error);
-    }
-  }
+  // async requestConsumer(producingPeerId, producerId) {
+  //   try {
+  //     if (!this.consumers[producingPeerId]) {
+  //       this.consumers[producingPeerId] = {};
+  //     }
+  //     await this.socket.request("mediasoupSignaling", {
+  //       type: "createConsumer",
+  //       data: {
+  //         producingPeerId,
+  //         producerId,
+  //       },
+  //     });
+  //   } catch (error) {
+  //     console.error("Error requesting consumer:", error);
+  //   }
+  // }
 
   async requestDataConsumer(producingPeerId, producerId) {
     try {
@@ -582,17 +582,9 @@ class SimpleMediasoupPeer {
           });
         }
 
-        // tell the server to start the newly created consumer
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "resumeConsumer",
-            data: {
-              producerId: stableProducerId,
-            },
-          });
-        } catch (error) {
-          console.error("Error resuming consumer:", error);
-        }
+
+        await this._resumeConsumer(consumer);
+
       }
 
       if (consumer && consumer.track) {
@@ -600,6 +592,8 @@ class SimpleMediasoupPeer {
           track: consumer.track,
           peerId: consumer.appData.peerId,
           label: consumer.appData.label,
+          pause: () => this._pauseConsumer(consumer),
+          resume: () => this._resumeConsumer(consumer),
         });
       }
     } catch (error) {
@@ -654,11 +648,6 @@ class SimpleMediasoupPeer {
       console.error('"newDataConsumer" request failed:%o', error);
     }
   }
-
-  // updatePeersFromSyncData(syncData) {
-  //   this.latestAvailableProducers = syncData;
-  //   this.ensureConnectedToDesiredPeerConnections();
-  // }
 
   async handleSocketMessage(request) {
     switch (request.type) {
@@ -757,45 +746,36 @@ class SimpleMediasoupPeer {
     }
   }
 
-  /*
-  connect to a given peer
-  */
-  connectToPeer(otherPeerId) {
-    if (!otherPeerId) {
-      console.warn("No peer ID provided to connectToPeer");
-      return;
-    }
+  async _resumeConsumer(consumer) {
+    try {
 
-    logger("Attempting to connect to peer", otherPeerId);
-    this.desiredPeerConnections.add(otherPeerId);
-    console.log(this.latestAvailableProducers);
+      await this.socket.request("mediasoupSignaling", {
+        type: "resumeConsumer",
+        data: {
+          producerId: consumer.producerId,
+        },
+      });
+      consumer.resume();
 
-    if (this.latestAvailableProducers[otherPeerId] && this.latestAvailableProducers[otherPeerId].producers) {
-      for (const producerId in this.latestAvailableProducers[otherPeerId].producers) {
-        const existingConsumer =
-          this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
-        logger("existingConsumer:", existingConsumer);
-        if (!existingConsumer) {
-          this.requestConsumer(otherPeerId, producerId);
-        }
-      }
+    } catch (error) {
+      console.error("Error resuming consumer:", error);
     }
   }
 
-  /*
-  disconnect from a given peer
-  */
-  disconnectFromPeer(otherPeerId) {
-    if (this.consumers[otherPeerId]) {
-      for (let producerId in this.consumers[otherPeerId]) {
-        const consumer = this.consumers[otherPeerId][producerId];
-        if (consumer) {
-          this.closeConsumer(consumer);
-        }
-      }
-      delete this.consumers[otherPeerId];
+  async _pauseConsumer(consumer) {
+    try {
+
+      await this.socket.request("mediasoupSignaling", {
+        type: "pauseConsumer",
+        data: {
+          producerId: consumer.producerId,
+        },
+      });
+      consumer.pause();
+
+    } catch (error) {
+      console.error("Error pausing consumer:", error);
     }
-    this.desiredPeerConnections.delete(otherPeerId);
   }
 
   /*
@@ -810,23 +790,8 @@ class SimpleMediasoupPeer {
 
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
-
-      // by default do not let us pause a broadcasts
-      if (!consumer || consumer.appData.broadcast) continue;
       if (!consumer.paused) {
-        logger("Pausing consumer!");
-
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "pauseConsumer",
-            data: {
-              producerId: consumer.producerId,
-            },
-          });
-          consumer.pause();
-        } catch (error) {
-          console.error("Error pausing consumer:", error);
-        }
+        await this._pauseConsumer(consumer);
       }
     }
   }
@@ -843,21 +808,8 @@ class SimpleMediasoupPeer {
 
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
-
-      if (!consumer) continue;
       if (consumer.paused) {
-        logger("Resuming consumer!");
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "resumeConsumer",
-            data: {
-              producerId: consumer.producerId,
-            },
-          });
-          consumer.resume();
-        } catch (error) {
-          console.error("Error resuming consumer:", error);
-        }
+        await this._resumeConsumer(consumer);
       }
     }
   }
