@@ -483,6 +483,7 @@ class SimpleMediasoupPeer {
           appData: { ...appData, peerId },
         });
 
+        console.log("Created consumer:", consumer);
         const stableConsumerId = consumer.id; // capture id before any potential nulling
         const stableProducerId = consumer.producerId; // capture id before any potential nulling
         logger("Created consumer:", consumer);
