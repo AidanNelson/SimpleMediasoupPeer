@@ -1,4 +1,5 @@
 const os = require("os");
+const path = require("path");
 var ip = require("ip");
 const LOCAL_IP_ADDRESS = ip.address();
 console.log("Local IP Address: ", LOCAL_IP_ADDRESS);
@@ -27,6 +28,9 @@ const config = {
       ],
       rtcMinPort: 40000,
       rtcMaxPort: 49999,
+      // Use shared DTLS certificate for all workers (important for Firefox compatibility)
+      dtlsCertificateFile: path.join(__dirname, "dtls-cert.pem"),
+      dtlsPrivateKeyFile: path.join(__dirname, "dtls-key.pem"),
     },
     // mediasoup Router options.
     // See https://mediasoup.org/documentation/v3/mediasoup/api/#RouterOptions

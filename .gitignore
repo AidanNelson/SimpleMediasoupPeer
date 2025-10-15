@@ -2,3 +2,6 @@ node_modules/
 .parcel-cache/
 client/dist/**
 .DS_Store
+
+# DTLS certificates
+server/*.pem
