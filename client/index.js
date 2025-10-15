@@ -44,10 +44,6 @@ this.consumers = {
     }
 }
 
-// a set of peer IDs of peers we'd like to remain connected to
-// this persists through a disconnection event
-this.desiredPeerConnections = new Set();
-
 */
 import * as mediasoupClient from "mediasoup-client";
 import { io } from "socket.io-client";
@@ -101,9 +97,8 @@ class SimpleMediasoupPeer {
     this.tracksToProduce = {};
 
     this.latestAvailableProducers = {};
-    this.desiredPeerConnections = new Set();
 
-    this.publiclyExposedEvents = new Set(["peerConnection", "peerDisconnection", "track", "data"]);
+    this.publiclyExposedEvents = new Set(["track", "data"]);
     this.userDefinedCallbacks = {};
 
     // add promisified socket request to make our lives easier
@@ -462,88 +457,6 @@ class SimpleMediasoupPeer {
   //   }
   // }
 
-  // ensureConnectedToDesiredPeerConnections() {
-  //   // console.log("ensure connections");
-  //   // console.log("latest available producers:", this.latestAvailableProducers);
-  //   // console.log("desired connections:", this.desiredPeerConnections);
-
-  //   if (this.latestAvailableProducers && typeof this.latestAvailableProducers === 'object') {
-  //     for (const peerId in this.latestAvailableProducers) {
-  //       if (peerId === this.socket.id) continue; // ignore our own streams
-
-  //       // check all their producers
-  //       if (this.latestAvailableProducers[peerId].producers) {
-  //         for (const producerId in this.latestAvailableProducers[peerId].producers) {
-  //           const shouldConsume =
-  //             this.desiredPeerConnections.has(peerId) ||
-  //             this.latestAvailableProducers[peerId].producers[producerId].broadcast ||
-  //             this.options.autoConnect;
-
-  //           if (shouldConsume) {
-  //             const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-  //             if (!consumer) {
-  //               this.requestConsumer(peerId, producerId);
-  //             }
-  //           }
-  //         }
-  //       }
-
-  //       // check all available data producers
-  //       if (this.latestAvailableProducers[peerId].dataProducers) {
-  //         for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
-  //           const shouldConsume =
-  //             this.desiredPeerConnections.has(peerId) ||
-  //             this.latestAvailableProducers[peerId].dataProducers[dataProducerId].broadcast ||
-  //             this.options.autoConnect;
-
-  //           if (shouldConsume) {
-  //             const dataConsumer =
-  //               this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
-  //             if (!dataConsumer) {
-  //               this.requestDataConsumer(peerId, dataProducerId);
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-
-  // async requestConsumer(producingPeerId, producerId) {
-  //   try {
-  //     if (!this.consumers[producingPeerId]) {
-  //       this.consumers[producingPeerId] = {};
-  //     }
-  //     await this.socket.request("mediasoupSignaling", {
-  //       type: "createConsumer",
-  //       data: {
-  //         producingPeerId,
-  //         producerId,
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error("Error requesting consumer:", error);
-  //   }
-  // }
-
-  // async requestDataConsumer(producingPeerId, producerId) {
-  //   try {
-  //     if (!this.dataConsumers[producingPeerId]) {
-  //       this.dataConsumers[producingPeerId] = {};
-  //     }
-
-  //     await this.socket.request("mediasoupSignaling", {
-  //       type: "createDataConsumer",
-  //       data: {
-  //         producingPeerId,
-  //         producerId,
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error("Error requesting data consumer:", error);
-  //   }
-  // }
-
   async createConsumer(consumerInfo) {
     try {
       const { peerId, producerId, id, kind, rtpParameters, type, appData, producerPaused } =
@@ -651,26 +564,6 @@ class SimpleMediasoupPeer {
 
   async handleSocketMessage(request) {
     switch (request.type) {
-      case "peerConnection": {
-        console.log("peer connection", request.data);
-        request.data.forEach((peerId) => {
-          this.callEventCallback("peerConnection", { peerId });
-        });
-        break;
-      }
-
-      case "peerDisconnection": {
-        console.log("peer disonnection", request.data);
-        request.data.forEach((peerId) => {
-          this.callEventCallback("peerDisconnection", { peerId });
-        });
-        break;
-      }
-
-      case "availableProducers": {
-        // this.updatePeersFromSyncData(request.data);
-        break;
-      }
 
       case "createConsumer": {
         this.createConsumer(request.data);

@@ -117,87 +117,9 @@ class SimpleMediasoupPeerServer {
         });
       });
 
-      // setInterval(() => {
-      //   this.sendSyncDataToAllRooms();
-      // }, 1000);
     } catch (error) {
       console.error("Error initializing SimpleMediasoupPeerServer:", error);
     }
-  }
-
-  // sendSyncDataToAllRooms() {
-  //   try {
-  //     const allRooms = Object.keys(this.rooms);
-  //     for (const roomId of allRooms) {
-  //       let syncData;
-  //       let peerIdsInRoom = this.rooms[roomId];
-  //       try {
-  //         syncData = this.getSyncDataForRoom(roomId);
-  //       } catch (err) {
-  //         logger("Error building sync data for room", roomId, err);
-  //         continue;
-  //       }
-
-  //       if (!syncData || !Array.isArray(peerIdsInRoom) || peerIdsInRoom.length === 0) {
-  //         delete this.rooms[roomId];
-  //         continue;
-  //       }
-
-  //       peerIdsInRoom.forEach((pid) => {
-  //         try {
-  //           this.peers[pid]?.socket?.emit("mediasoupSignaling", {
-  //             type: "availableProducers",
-  //             data: syncData,
-  //           });
-  //         } catch (err) {
-  //           logger("Error emitting sync data to peer", pid, err);
-  //         }
-  //       });
-  //     }
-  //   } catch (err) {
-  //     logger("Error in sendSyncDataToAllRooms:", err);
-  //   }
-  // }
-
-  /*
-    Returns an object structured as follows:
-    {
-        peerId1: {},
-        peerId2: {
-            'producerId12345': {label: 'camera', peerId: '12jb12kja3', broadcast: true}
-            'producerId88888': {label: 'microphone', peerId: '12jb12kja3'}
-        }
-    }
-    */
-  getSyncDataForRoom(roomId) {
-    let syncData = {};
-    const peersInRoom = this.rooms[roomId];
-    // if the room no longer exists, return an empty object
-    // TODO cleanup rooms as peers exit
-    if (!peersInRoom) {
-      // room is empty!  let's get rid of it
-      return undefined;
-    }
-    for (const peerId of peersInRoom) {
-      if (this.peers[peerId]) {
-        syncData[peerId] = { producers: {} }; // dataProducers: {} commented out for testing
-        for (const producerId in this.peers[peerId].producers) {
-          let peerRouterIndex = this.peers[peerId].routerIndex;
-          const producer = this.peers[peerId].producers[producerId]?.[peerRouterIndex];
-          if (producer?.appData) {
-            syncData[peerId].producers[producerId] = producer.appData;
-          }
-        }
-        // for (const dataProducerId in this.peers[peerId].dataProducers) {
-        //   let peerRouterIndex = this.peers[peerId].routerIndex;
-        //   const dataProducer = this.peers[peerId].dataProducers[dataProducerId]?.[peerRouterIndex];
-        //   if (dataProducer?.appData) {
-        //     syncData[peerId].dataProducers[dataProducerId] = dataProducer.appData;
-        //   }
-        // }
-      }
-    }
-    return syncData;
   }
 
   async initializeMediasoupWorkersAndRouters() {
@@ -539,26 +461,9 @@ class SimpleMediasoupPeerServer {
     const existingPeerIds = structuredClone(this.rooms[roomId]);
     logger("existing peers in room ", roomId, ": ", existingPeerIds);
 
-    // tell everyone else that this peer just joined
-    for (const existingPeerId of existingPeerIds) {
-      console.log("telling", existingPeerId, "about new peer:", peerId);
-      this.peers[existingPeerId]?.socket.emit("mediasoupSignaling", {
-        type: "peerConnection",
-        data: [peerId],
-      });
-    }
-
     // add peer to this room:
     this.rooms[roomId].push(peerId);
     this.peers[peerId].room = roomId;
-
-    // tell this peer about everyone else
-    if (existingPeerIds.length > 0) {
-      this.peers[peerId].socket.emit("mediasoupSignaling", {
-        type: "peerConnection",
-        data: existingPeerIds,
-      });
-    }
 
     // create consumers for each existing peer
     for (const existingPeerId of existingPeerIds) {
@@ -619,10 +524,8 @@ class SimpleMediasoupPeerServer {
     // });
 
     // emit peer disconnection events for other peers to the peer that is leaving
-    this.peers[peerId].socket.emit("mediasoupSignaling", {
-      type: "peerDisconnection",
-      data: this.rooms[roomId]
-    });
+
+    
 
 
     // inform remaining peers
@@ -633,11 +536,6 @@ class SimpleMediasoupPeerServer {
     remainingRoomPeerIds.forEach(async (otherPeerId) => {
       const otherPeer = this.peers[otherPeerId];
       if (!otherPeer) return;
-
-      otherPeer.socket.emit("mediasoupSignaling", {
-        type: "peerDisconnection",
-        data: [peerId],
-      });
 
       producerIds.forEach(async (pid) => {
         const consumer = otherPeer.consumers[pid];
