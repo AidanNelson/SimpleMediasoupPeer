@@ -923,8 +923,14 @@ class SimpleMediasoupPeerServer {
         this.peers[producingPeerId].producers[producer.id][consumingRouterIndex] = pipeProducer;
       }
 
-      // broadcast the producer to all other peers in the room
-      const peersInRoom = this.rooms[this.peers[producingPeerId].roomId];
+
+
+      const roomId = this.peers?.[producingPeerId]?.roomId;
+      if (!roomId){
+        logInfo(`Producer ${producer.id} not found in any room, skipping consumer creation`);
+        return producer;
+      }
+      const peersInRoom = this.rooms[roomId] || [];
 
       // Create all consumer creation promises simultaneously for better performance
       const consumerCreationPromises = [];

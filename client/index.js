@@ -135,7 +135,9 @@ class SimpleMediasoupPeer {
       } catch (error) {
         console.error("Error connecting to socket connect handler:", error);
       }
-      await this.joinRoom(this.options.roomId);
+      if (this.options.roomId) {
+        await this.joinRoom(this.options.roomId);
+      }
     });
 
     // test reconnecting to the socket
@@ -256,13 +258,10 @@ class SimpleMediasoupPeer {
       // await this.addDataProducer();
 
       for (const label in this.tracksToProduce) {
-        const track = this.tracksToProduce[label].track;
-        const broadcast = this.tracksToProduce[label].broadcast;
-        const customEncodings = this.tracksToProduce[label].customEncodings;
-        if (track.readyState !== "live") {
+        if (this.tracksToProduce[label].track.readyState !== "live") {
           console.warn("Previously added track is not live, skipping");
         } else {
-          this.addProducer(track, label, broadcast, customEncodings);
+          await this._addProducer(this.tracksToProduce[label]);
         }
       }
 
@@ -275,14 +274,14 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addTrack(track, label, broadcast = false, customEncodings = false) {
+  async addTrack({ track, label, customEncodings = false }) {
     this.tracksToProduce[label] = {
       track,
-      broadcast,
+      label,
       customEncodings,
     };
     try {
-      await this.addProducer(track, label, broadcast, customEncodings);
+      await this._addProducer(this.tracksToProduce[label]);
     } catch (error) {
       console.error("Error adding producer for track:", error);
     }
@@ -303,10 +302,10 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addProducer(track, label, broadcast, customEncodings) {
+  async _addProducer({ track, label, customEncodings }) {
     let producer;
 
-    console.log("Adding producer", label, track, broadcast, customEncodings);
+    console.log("Adding producer", label, track, customEncodings);
     if (track.readyState !== "live") {
       throw new Error("Track is not live");
       return;
@@ -346,7 +345,6 @@ class SimpleMediasoupPeer {
           },
           appData: {
             label,
-            broadcast,
           },
         });
       } else if (track.kind === "audio") {
@@ -364,7 +362,6 @@ class SimpleMediasoupPeer {
           encodings,
           appData: {
             label,
-            broadcast,
           },
         });
       }
@@ -966,7 +963,7 @@ class SimpleMediasoupPeer {
             logger('ICE connection state at DTLS failure:', this.recvTransport.iceConnectionState);
           }
         });
-        
+
       }
 
       logger("Created receive transport!");

@@ -43,15 +43,11 @@ async function startBroadcast() {
   }
 
   const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
 
   if (videoTrack) {
-    mediasoupPeer.addTrack(videoTrack, "video-broadcast", true);
+    mediasoupPeer.addTrack({ track: videoTrack, label: "video-broadcast" });
   }
 
-  if (audioTrack) {
-    mediasoupPeer.addTrack(audioTrack, "audio-broadcast", true);
-  }
 }
 
 async function sendCamera() {
