@@ -196,7 +196,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async leaveRoom({ roomId }) {
+  async leaveRoom(roomId) {
     if (!roomId) {
       logger("No roomId provided to leaveRoom");
       return;

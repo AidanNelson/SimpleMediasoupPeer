@@ -8,6 +8,17 @@ let customVideoEncodings = [{ scaleResolutionDownBy: 1, maxBitrate: 500000 }];
 async function startBroadcast() {
   let videoTrack = localCam.getVideoTracks()[0];
   mediasoupPeer.addTrack(videoTrack, "video-broadcast", true, customVideoEncodings);
+
+  setInterval(() => {
+    mediasoupPeer.leaveRoom("broadcastRoom123");
+    mediasoupPeer.joinRoom("broadcastRoom123");
+
+
+  }, 2000);
+  setInterval(() => {
+    mediasoupPeer.socket.disconnect();
+    mediasoupPeer.socket.connect();
+  }, 4000);
 }
 
 async function main() {

@@ -44,13 +44,18 @@ this.peers = {
 }
 */
 
+process.env.DEBUG = "SimpleMediasoupPeer:Error";
+
+
 const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
 const { Server } = require("socket.io");
 
 const config = require("./config");
 const debug = require("debug");
-const logger = debug("SimpleMediasoupPeer:server");
+
+const logInfo = debug("SimpleMediasoupPeer:Info");
+const logError = debug("SimpleMediasoupPeer:Error");
 
 class SimpleMediasoupPeerServer {
   constructor(options = {}) {
@@ -75,8 +80,8 @@ class SimpleMediasoupPeerServer {
 
   async init() {
     try {
-      logger("Initializing SimpleMediasoupPeerServer!");
-      logger("Config: ", JSON.stringify(config, null, 2));
+      logInfo("Initializing SimpleMediasoupPeerServer!");
+      logInfo("Config: ", JSON.stringify(config, null, 2));
       await this.initializeMediasoupWorkersAndRouters();
 
       this.currentPeerRouterIndex = -1;
@@ -94,22 +99,26 @@ class SimpleMediasoupPeerServer {
       } else {
         this.io = new Server(this.options.socketServerOpts);
         this.io.listen(this.options.port);
-        logger("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
+        logInfo("SimpleMediasoupPeer socket.io server listening on port:", this.options.port);
       }
 
       this.io.on("connection", (socket) => {
-        logger("Socket joined:", socket.id);
+        logInfo("Socket joined:", socket.id);
         this.addPeer(socket);
 
-        socket.on("disconnect", () => {
-          this.removePeer(socket.id);
+        socket.on("disconnect", async () => {
+          try {
+            await this.removePeer(socket.id);
+          } catch (error) {
+            logError("Error in disconnect handler:", error);
+          }
         });
 
         socket.on("mediasoupSignaling", async (data, callback) => {
           try {
             await this.handleSocketRequest(socket.id, data, callback);
           } catch (error) {
-            logger("Error in mediasoupSignaling handler:", error);
+            logError("Error in mediasoupSignaling handler:", error);
             if (callback) {
               callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
             }
@@ -118,7 +127,7 @@ class SimpleMediasoupPeerServer {
       });
 
     } catch (error) {
-      console.error("Error initializing SimpleMediasoupPeerServer:", error);
+      logError("Error initializing SimpleMediasoupPeerServer:", error);
     }
   }
 
@@ -130,7 +139,7 @@ class SimpleMediasoupPeerServer {
       try {
         const worker = await mediasoup.createWorker(config.mediasoup.workerSettings);
         worker.on("died", (error) => {
-          console.error("Mediasoup worker died: ", error);
+          logError("Mediasoup worker died: ", error);
         });
 
         const router = await worker.createRouter({
@@ -139,7 +148,7 @@ class SimpleMediasoupPeerServer {
         this.workers[i] = worker;
         this.routers[i] = router;
       } catch (error) {
-        console.error("Error initializing mediasoup workers and routers:", error);
+        logError("Error initializing mediasoup workers and routers:", error);
         throw error;
       }
     }
@@ -151,7 +160,7 @@ class SimpleMediasoupPeerServer {
     if (this.currentPeerRouterIndex >= this.routers.length) {
       this.currentPeerRouterIndex = 0;
     }
-    logger(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
+    logInfo(`Assigning peer to router # ${this.currentPeerRouterIndex}`);
     return this.currentPeerRouterIndex;
   }
 
@@ -168,20 +177,19 @@ class SimpleMediasoupPeerServer {
     };
   }
   async removePeer(id) {
-    logger(`Removing and cleaning up peer ${id}`);
+    logInfo(`Removing and cleaning up peer ${id}`);
     const peer = this.peers[id];
 
     if (!peer) return;
 
     const existingRoomId = peer.roomId;
     if (existingRoomId) {
-      logger(`Removing peer from room ${existingRoomId}.`);
       await this.removePeerFromRoom({ peerId: id, roomId: existingRoomId });
     }
 
     // close transports
     for (const transportId in peer.transports) {
-      logger("Closing transport");
+      logInfo("Closing transport");
       peer.transports[transportId].close();
     }
 
@@ -190,18 +198,28 @@ class SimpleMediasoupPeerServer {
   }
 
   async handleSocketRequest(id, request, callback) {
-    logger(`Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`, request.data);
-    logger
+    logInfo(`Received request of type ${request.type} from peer ${id}.  \nRequest data: %j`, request.data);
+    logInfo
     switch (request.type) {
       case "joinRoom": {
-        this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
-        callback({ success: true });
+        try {
+          await this.addPeerToRoom({ peerId: id, roomId: request.data.roomId });
+          callback({ success: true });
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
         break;
       }
 
       case "leaveRoom": {
-        this.removePeerFromRoom({ peerId: id, roomId: request.data.roomId });
-        callback({ success: true });
+        try {
+          await this.removePeerFromRoom({ peerId: id, roomId: request.data.roomId });
+          callback({ success: true });
+        } catch (error) {
+          callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
+          return;
+        }
         break;
       }
 
@@ -217,7 +235,7 @@ class SimpleMediasoupPeerServer {
       }
 
       case "createWebRtcTransport": {
-        logger("Creating WebRTC transport!");
+        logInfo("Creating WebRTC transport!");
         try {
           const transportInfo = await this.createTransportForPeer({ peerId: id, data: request.data });
           callback({ success: true, transportInfo });
@@ -229,7 +247,7 @@ class SimpleMediasoupPeerServer {
       }
 
       case "connectWebRtcTransport": {
-        logger("Connecting WebRTC transport!");
+        logInfo("Connecting WebRTC transport!");
 
         try {
           const { transportId, dtlsParameters } = request.data;
@@ -251,7 +269,7 @@ class SimpleMediasoupPeerServer {
       }
 
       case "produce": {
-        logger("Creating server-side producer!");
+        logInfo("Creating server-side producer!");
 
         try {
           const producer = await this.createProducer({ producingPeerId: id, data: request.data });
@@ -260,10 +278,6 @@ class SimpleMediasoupPeerServer {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
         }
-
-
-        // update room
-
         break;
       }
 
@@ -351,7 +365,7 @@ class SimpleMediasoupPeerServer {
       // }
 
       case "pauseConsumer": {
-        logger("Pausing consumer!");
+        logInfo("Pausing consumer!");
         try {
           const consumer = this.getConsumer(id, request.data.producerId);
 
@@ -368,7 +382,7 @@ class SimpleMediasoupPeerServer {
       }
 
       case "resumeConsumer": {
-        logger("Resuming consumer!");
+        logInfo("Resuming consumer!");
 
         try {
           const consumer = this.getConsumer(id, request.data.producerId);
@@ -377,17 +391,9 @@ class SimpleMediasoupPeerServer {
             throw new Error("No consumer found!");
           }
 
-          // Check if the consumer's transport is connected
-          const transport = this.getRecvTransportForPeer(id);
-          if (transport.dtlsState !== 'connected') {
-            logger("Warning: Attempting to resume consumer but transport DTLS state is %s for peer %s",
-              transport.dtlsState, id);
-          }
-
           await consumer.resume();
           callback({ success: true });
         } catch (error) {
-          logger("Error resuming consumer for peer %s: %s", id, error.message);
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
           return;
         }
@@ -396,7 +402,7 @@ class SimpleMediasoupPeerServer {
       }
 
       case "closeConsumer": {
-        logger("Closing consumer!");
+        logInfo("Closing consumer!");
         try {
           const consumer = this.getConsumer(id, request.data.producerId);
 
@@ -431,7 +437,7 @@ class SimpleMediasoupPeerServer {
           delete this.peers[id].producers[producerId];
 
           callback({ success: true });
-          logger("Closed producer");
+          logInfo("Closed producer");
 
         } catch (error) {
           callback({ error: "Internal server error: " + (error?.message || error?.toString() || "Unknown error") });
@@ -444,7 +450,11 @@ class SimpleMediasoupPeerServer {
   }
 
   async addPeerToRoom({ peerId, roomId }) {
-    logger(`Adding peer ${peerId} to room ${roomId}.`);
+    logInfo(`Adding peer ${peerId} to room ${roomId}.`);
+
+    if (this.peers[peerId].roomId !== null) {
+      throw new Error(`Peer ${peerId} already in room ${this.peers[peerId].roomId}`);
+    }
 
     // if we haven't seen this room before, create it
     if (!this.rooms.hasOwnProperty(roomId)) {
@@ -472,7 +482,7 @@ class SimpleMediasoupPeerServer {
             producingPeerId: existingPeerId,
             producerId
           }).catch(error => {
-            console.error(`Error creating consumer for existing peer ${existingPeerId}:`, error);
+            logError(`Error creating consumer for existing peer ${existingPeerId}:`, error);
           })
         );
       }
@@ -486,7 +496,7 @@ class SimpleMediasoupPeerServer {
             producingPeerId: peerId,
             producerId
           }).catch(error => {
-            console.error(`Error creating consumer for new peer ${peerId}:`, error);
+            logError(`Error creating consumer for new peer ${peerId}:`, error);
           })
         );
       }
@@ -500,7 +510,7 @@ class SimpleMediasoupPeerServer {
   }
 
   async removePeerFromRoom({ peerId, roomId }) {
-    logger(`Removing peer with id ${peerId} from room with id${roomId}`);
+    logInfo(`Removing peer with id ${peerId} from room with id${roomId}`);
 
     if (!this.rooms[roomId] || !this.peers[peerId]) return;
 
@@ -509,23 +519,34 @@ class SimpleMediasoupPeerServer {
     this.peers[peerId].roomId = null;
 
     // disconnect this peer from others within the room:
-    for (const consumerId in this.peers[peerId].consumers) {
-      await this.closeConsumer({ peerId, consumer: this.peers[peerId].consumers[consumerId] });
+    // Guard: Check peer still exists before accessing consumers
+    if (this.peers[peerId]?.consumers) {
+      for (const consumerId in this.peers[peerId].consumers) {
+        await this.closeConsumer({ peerId, consumer: this.peers[peerId].consumers[consumerId] });
+      }
     }
 
     // close consumers for the other peers in the room
     // of the leaving peer's producers
-    for (const remainingPeerId of this.rooms[roomId]) {
-      for (const producerId in this.peers[peerId].producers) {
-        const consumer = this.peers[remainingPeerId].consumers[producerId];
-        if (consumer) {
-          await this.closeConsumer({ peerId: remainingPeerId, consumer });
+    if (this.peers[peerId]?.producers) {
+      for (const remainingPeerId of this.rooms[roomId]) {
+        // Guard: Remaining peer might have disconnected during this operation
+        if (!this.peers[remainingPeerId]) {
+          logInfo(`Remaining peer ${remainingPeerId} no longer exists, skipping cleanup`);
+          continue;
+        }
+
+        for (const producerId in this.peers[peerId].producers) {
+          const consumer = this.peers[remainingPeerId]?.consumers?.[producerId];
+          if (consumer) {
+            await this.closeConsumer({ peerId: remainingPeerId, consumer });
+          }
         }
       }
     }
 
     if (this.rooms[roomId].length === 0) {
-      logger(`Room ${roomId} empty.  Removing it.`);
+      logInfo(`Room ${roomId} empty.  Removing it.`);
       delete this.rooms[roomId];
     }
   }
@@ -581,34 +602,51 @@ class SimpleMediasoupPeerServer {
     */
   async createConsumerFromProducerOrPipeProducer({ consumingPeerId, producingPeerId, producerId }) {
     try {
-      // Validate peers exist
+      // Validate peers exist (expected to fail during disconnects - not an error)
       const consumingPeer = this.peers[consumingPeerId];
       const producingPeer = this.peers[producingPeerId];
-      if (!consumingPeer) throw new Error(`Consuming peer ${consumingPeerId} not found`);
-      if (!producingPeer) throw new Error(`Producing peer ${producingPeerId} not found`);
+
+      if (!consumingPeer) {
+        logInfo(`Consuming peer ${consumingPeerId} not found (likely disconnected), skipping consumer creation`);
+        return null;
+      }
+      if (!producingPeer) {
+        logInfo(`Producing peer ${producingPeerId} not found (likely disconnected), skipping consumer creation`);
+        return null;
+      }
 
       // first check whether the producer or one of its pipe producers exists
       // on the consuming peer's router:
-      const consumingPeerRouterIndex = consumingPeer.routerIndex;
+      const consumingPeerRouterIndex = consumingPeer?.routerIndex;
 
-      const producerMapForPeer = producingPeer.producers[producerId];
-      if (!producerMapForPeer) {
-        throw new Error(
-          `Producer ${producerId} not found for producing peer ${producingPeerId}`
-        );
+      if (!consumingPeerRouterIndex){
+        logInfo(`Consuming peer ${consumingPeerId} not found (likely disconnected), skipping consumer creation`);
+        return null;
       }
 
-      let producerOrPipeProducer = producerMapForPeer[consumingPeerRouterIndex];
+      const producerMapForPeer = producingPeer?.producers?.[producerId];
+      if (!producerMapForPeer) {
+        logInfo(`Producer ${producerId} not found for producing peer ${producingPeerId} (likely disconnected), skipping consumer creation`);
+        return null;
+      }
+
+      let producerOrPipeProducer = producerMapForPeer?.[consumingPeerRouterIndex];
       if (!producerOrPipeProducer) {
-        throw new Error(`Producer or pipe producer not found for producing peer ${producingPeerId}`);
+        logInfo(`Producer or pipe producer not found for producing peer ${producingPeerId} (likely disconnected), skipping consumer creation`);
+        return null;
       }
 
       const consumer = await this.createConsumer({ consumingPeerId, producer: producerOrPipeProducer });
 
-      if (!consumer) return null;
+      if (!consumer) {
+        logInfo(`Consumer not created for producing peer ${producingPeerId} (likely disconnected), skipping consumer creation`);
+        return null;
+      }
 
-      // add new consumer to the consuming peer's consumers object:
-      this.peers[consumingPeerId].consumers[producerId] = consumer;
+      // add new consumer to the consuming peer's consumers object (if the peer still exists)
+      if (this.peers[consumingPeerId]?.consumers) {
+        this.peers[consumingPeerId].consumers[producerId] = consumer;
+      }
 
       // Notify the consuming peer about the new consumer
       const consumerInfo = {
@@ -630,8 +668,8 @@ class SimpleMediasoupPeerServer {
       return consumer;
 
     } catch (err) {
-      logger("Error in createConsumerFromProducerOrPipeProducer:", err);
-      throw err;
+      logError("Error in createConsumerFromProducerOrPipeProducer:", err);
+      return null;
     }
   }
 
@@ -719,6 +757,7 @@ class SimpleMediasoupPeerServer {
     try {
       const transport = this.getRecvTransportForPeer(consumingPeerId);
 
+
       const consumer = await transport.consume({
         producerId: producer.id,
         rtpCapabilities: this.routers[this.peers[consumingPeerId].routerIndex].rtpCapabilities,
@@ -726,7 +765,11 @@ class SimpleMediasoupPeerServer {
         appData: producer.appData,
       });
 
-      this.peers[consumingPeerId].consumers[producer.id] = consumer;
+      // add consumer to the consuming peer's consumers object if the peer exists
+      // it is possible that the peer has left the room by the time the consumer is created
+      if (this.peers[consumingPeerId]) {
+        this.peers[consumingPeerId].consumers[producer.id] = consumer;
+      }
 
       // Set Consumer events.
       consumer.on("transportclose", () => {
@@ -749,13 +792,13 @@ class SimpleMediasoupPeerServer {
 
       return consumer;
     } catch (err) {
-      logger("Error in createConsumer:", err);
+      logError("Error in createConsumer:", err);
       throw err;
     }
   }
 
   async closeConsumer({ peerId, consumer }) {
-    logger(`Closing consumer ${consumer.id} from peer ${peerId}`);
+    logInfo(`Closing consumer ${consumer.id} from peer ${peerId}`);
     try {
       //  close the server-side consumer
       await consumer.close();
@@ -773,7 +816,7 @@ class SimpleMediasoupPeerServer {
       if (!this.peers[peerId] || !this.peers[peerId].consumers) return;
       delete this.peers[peerId].consumers[consumer.producerId];
     } catch (err) {
-      console.error("Error in closeConsumer:", err);
+      logError("Error in closeConsumer:", err);
     }
   }
 
@@ -894,7 +937,7 @@ class SimpleMediasoupPeerServer {
               producingPeerId,
               producerId: producer.id
             }).catch(error => {
-              console.error(`Error in createConsumersForProducer for peer ${consumingPeerId}:`, error);
+              logError(`Error in createConsumersForProducer for peer ${consumingPeerId}:`, error);
             })
           );
         }
@@ -906,7 +949,7 @@ class SimpleMediasoupPeerServer {
       return producer;
 
     } catch (error) {
-      logger("Error in createProducer:", error);
+      logError("Error in createProducer:", error);
       throw error;
     }
   }
@@ -969,12 +1012,12 @@ class SimpleMediasoupPeerServer {
       );
 
       transport.on("sctpstatechange", (sctpState) => {
-        logger('WebRtcTransport "sctpstatechange" event [sctpState:%s]', sctpState);
+        logInfo('WebRtcTransport "sctpstatechange" event [sctpState:%s]', sctpState);
       });
 
       transport.on("dtlsstatechange", async (dtlsState) => {
         if (dtlsState === "failed" || dtlsState === "closed") {
-          logger('WebRtcTransport "dtlsstatechange" event [dtlsState:%s]', dtlsState);
+          logInfo('WebRtcTransport "dtlsstatechange" event [dtlsState:%s]', dtlsState);
           // tell peer to reset their connection
           // this.peers[id].socket.emit("mediasoupSignaling", {
           //   type: "resetConnection",
@@ -994,7 +1037,7 @@ class SimpleMediasoupPeerServer {
         sctpParameters: transport.sctpParameters,
       };
     } catch (err) {
-      logger(err);
+      logInfo(err);
       throw err;
     }
   }
