@@ -12,15 +12,15 @@ function init() {
   mediasoupPeer.joinRoom("broadcastRoom123");
   window.smp = mediasoupPeer;
 
-  setInterval(() => {
-    mediasoupPeer.leaveRoom("broadcastRoom123");
-    mediasoupPeer.joinRoom("broadcastRoom123");
+  // setInterval(() => {
+  //   mediasoupPeer.leaveRoom("broadcastRoom123");
+  //   mediasoupPeer.joinRoom("broadcastRoom123");
     
-  }, 500);
-  setInterval(() => {
-    mediasoupPeer.socket.disconnect();
-    mediasoupPeer.socket.connect();
-  }, 1000);
+  // }, 500);
+  // setInterval(() => {
+  //   mediasoupPeer.socket.disconnect();
+  //   mediasoupPeer.socket.connect();
+  // }, 1000);
 }
 
 //*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//*//
@@ -31,13 +31,13 @@ function gotTrack({ track, peerId, label, pause, resume }) {
   let videoEl = document.getElementById("broadcast_video");
   let pauseButton = document.getElementById("pauseButton");
   let resumeButton = document.getElementById("resumeButton");
-  setInterval(() => {
-    pause();
-    setTimeout(() => {
-      resume();
-    }, 200);
+  // setInterval(() => {
+  //   pause();
+  //   setTimeout(() => {
+  //     resume();
+  //   }, 1000);
     
-  }, 500);
+  // }, 2000);
   pauseButton.addEventListener("click", () => {
     pause();
   });
