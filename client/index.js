@@ -46,7 +46,7 @@ this.consumers = {
 
 */
 import * as mediasoupClient from "mediasoup-client";
-import {debug} from "debug";
+import { debug } from "debug";
 import { io } from "socket.io-client";
 const logger = debug("SimpleMediasoupPeer");
 
@@ -126,7 +126,6 @@ class SimpleMediasoupPeer {
     });
 
     this.socket.on("connect", async () => {
-
       try {
         this._disconnectFromMediasoup();
         await this.initializeMediasoupConnection();
@@ -144,7 +143,6 @@ class SimpleMediasoupPeer {
     //   this.socket.io.connect();    // rebuilds everything
     // }, 5000);
 
-
     // this.socket.on("clients", (ids) => {
     //   logger("Got clients: ",ids)
     // });
@@ -157,7 +155,6 @@ class SimpleMediasoupPeer {
     //   logger("Client disconnected:", id);
     // });
   }
-
 
   async joinRoom(roomId) {
     if (!roomId) {
@@ -176,7 +173,11 @@ class SimpleMediasoupPeer {
 
   async _joinRoom() {
     try {
-      if (!this.mediasoupConnectionInitialized || this.desiredRoomId === null || this.desiredRoomId === this.currentRoomId) {
+      if (
+        !this.mediasoupConnectionInitialized ||
+        this.desiredRoomId === null ||
+        this.desiredRoomId === this.currentRoomId
+      ) {
         return;
       }
 
@@ -246,7 +247,6 @@ class SimpleMediasoupPeer {
   }
 
   async initializeMediasoupConnection() {
-
     try {
       this._setupMediasoupDevice();
       await this._connectToMediasoupRouter();
@@ -267,7 +267,6 @@ class SimpleMediasoupPeer {
       logger("Mediasoup connection initialized!");
       this.mediasoupConnectionInitialized = true;
       await this._joinRoom();
-
     } catch (error) {
       console.error("Error initializing Mediasoup connection:", error);
       this._initPromise = null;
@@ -281,8 +280,12 @@ class SimpleMediasoupPeer {
       customEncodings,
     };
 
-    await this._addProducer(this.tracksToProduce[label]);
+    if (!this.sendTransport) {
+      console.warn("Send transport not available, not adding track yet.");
+      return;
+    }
 
+    await this._addProducer(this.tracksToProduce[label]);
   }
 
   async removeTrack({ label }) {
@@ -312,101 +315,89 @@ class SimpleMediasoupPeer {
 
       if (this.producers[label] && !this.producers[label].closed) {
         logger(`Already producing ${label}! Swapping track!`);
-        try {
-          this.producers[label].replaceTrack({ track });
-          return;
-        } catch (error) {
-          console.error(`Error replacing track for ${label}:`, error);
-          // Continue with creating new producer
-        }
+        this.producers[label].replaceTrack({ track });
+        return;
       }
 
-      try {
-        if (!this.sendTransport) {
-          throw new Error("Send transport not available");
-        }
-
-        if (track.kind === "video") {
-          let encodings = [
-            { maxBitrate: 500000 }, // 0.5Mbps
-          ];
-
-          if (customEncodings) {
-            encodings = customEncodings;
-          }
-
-          producer = await this.sendTransport.produce({
-            track: track,
-            stopTracks: false,
-            encodings,
-            codecOptions: {
-              videoGoogleStartBitrate: 1000,
-            },
-            appData: {
-              label,
-            },
-          });
-        } else if (track.kind === "audio") {
-          let encodings = [
-            { maxBitrate: 64000 }, // 64 kbps
-          ];
-
-          if (customEncodings) {
-            encodings = customEncodings;
-          }
-
-          producer = await this.sendTransport.produce({
-            track: track,
-            stopTracks: false,
-            encodings,
-            appData: {
-              label,
-            },
-          });
-        }
-
-        if (producer) {
-          const stableProducerId = producer.id; // capture id before any potential nulling
-          producer.on("transportclose", () => {
-            producer = null;
-            logger("transport closed");
-          });
-
-          producer.on("trackended", async () => {
-            try {
-              await producer.close();
-            } catch (error) {
-              console.error("Error closing producer on track end:", error);
-            }
-            producer = null;
-            logger("Track ended.  Closing producer");
-          });
-
-          producer.observer.on("close", async () => {
-            try {
-              await this.socket.request("mediasoupSignaling", {
-                type: "closeProducer",
-                data: {
-                  producerId: stableProducerId,
-                },
-              });
-              logger("Producer closed.  Closed server-side producer.");
-            } catch (err) {
-              console.error("Error closing server-side producer:", err);
-            }
-            producer = null;
-            delete this.producers[label];
-          });
-        }
-
-        this.producers[label] = producer;
-
-      } catch (error) {
-        console.error("Error adding producer:", error);
+      if (!this.sendTransport) {
+        throw new Error("Send transport not available");
       }
 
-    }
-    catch (error) {
+      if (track.kind === "video") {
+        let encodings = [
+          { maxBitrate: 500000 }, // 0.5Mbps
+        ];
+
+        if (customEncodings) {
+          encodings = customEncodings;
+        }
+
+        producer = await this.sendTransport.produce({
+          track: track,
+          stopTracks: false,
+          encodings,
+          codecOptions: {
+            videoGoogleStartBitrate: 1000,
+          },
+          appData: {
+            label,
+          },
+        });
+      } else if (track.kind === "audio") {
+        let encodings = [
+          { maxBitrate: 64000 }, // 64 kbps
+        ];
+
+        if (customEncodings) {
+          encodings = customEncodings;
+        }
+
+        producer = await this.sendTransport.produce({
+          track: track,
+          stopTracks: false,
+          encodings,
+          appData: {
+            label,
+          },
+        });
+      }
+
+      if (producer) {
+        const stableProducerId = producer.id; // capture id before any potential nulling
+        producer.on("transportclose", () => {
+          producer = null;
+          logger("transport closed");
+        });
+
+        producer.on("trackended", async () => {
+          try {
+            await producer.close();
+          } catch (error) {
+            console.error("Error closing producer on track end:", error);
+          }
+          producer = null;
+          logger("Track ended.  Closing producer");
+        });
+
+        producer.observer.on("close", async () => {
+          try {
+            await this.socket.request("mediasoupSignaling", {
+              type: "closeProducer",
+              data: {
+                producerId: stableProducerId,
+              },
+            });
+            logger("Producer closed.  Closed server-side producer.");
+          } catch (err) {
+            console.error("Error closing server-side producer:", err);
+          }
+          producer = null;
+          delete this.producers[label];
+        });
+      }
+
+      this.producers[label] = producer;
+    } catch (error) {
       console.error("Error adding producer:", error);
     }
   }
@@ -496,9 +487,7 @@ class SimpleMediasoupPeer {
           });
         }
 
-
         await this._resumeConsumer(consumer);
-
       }
 
       if (consumer && consumer.track) {
@@ -565,7 +554,6 @@ class SimpleMediasoupPeer {
 
   async _handleSocketMessage(request) {
     switch (request.type) {
-
       case "createConsumer": {
         this._createConsumer(request.data);
         break;
@@ -597,7 +585,6 @@ class SimpleMediasoupPeer {
 
         break;
       }
-
     }
   }
 
@@ -609,15 +596,17 @@ class SimpleMediasoupPeer {
   add a callback for a given event
   */
   on(event, callback) {
-    console.log('event', event)
-    console.log('callback', typeof callback)
-    if (typeof event !== 'string') {
-      console.error(`Event name must be one of the following: ${this.publiclyExposedEvents.join(', ')}`);
+    console.log("event", event);
+    console.log("callback", typeof callback);
+    if (typeof event !== "string") {
+      console.error(
+        `Event name must be one of the following: ${this.publiclyExposedEvents.join(", ")}`
+      );
       return;
     }
-    console.log('event', event)
-    console.log('callback', typeof callback)
-    if (typeof callback !== 'function') {
+    console.log("event", event);
+    console.log("callback", typeof callback);
+    if (typeof callback !== "function") {
       console.error("Callback must be a function");
       return;
     }
@@ -630,7 +619,6 @@ class SimpleMediasoupPeer {
 
   async _resumeConsumer(consumer) {
     try {
-
       await this.socket.request("mediasoupSignaling", {
         type: "resumeConsumer",
         data: {
@@ -638,7 +626,6 @@ class SimpleMediasoupPeer {
         },
       });
       consumer.resume();
-
     } catch (error) {
       console.error("Error resuming consumer:", error);
     }
@@ -646,7 +633,6 @@ class SimpleMediasoupPeer {
 
   async _pauseConsumer(consumer) {
     try {
-
       await this.socket.request("mediasoupSignaling", {
         type: "pauseConsumer",
         data: {
@@ -654,7 +640,6 @@ class SimpleMediasoupPeer {
         },
       });
       consumer.pause();
-
     } catch (error) {
       console.error("Error pausing consumer:", error);
     }
@@ -755,7 +740,8 @@ class SimpleMediasoupPeer {
       if (!response || !response.transportInfo) {
         throw new Error("Invalid transport response from server");
       }
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
+        response.transportInfo;
 
       if (!this.device) {
         throw new Error("Mediasoup device not initialized");
@@ -793,16 +779,16 @@ class SimpleMediasoupPeer {
             }
           }
         );
-        this.sendTransport.on('connectionstatechange', state => {
-          logger('Send transport connection state:', state);
+        this.sendTransport.on("connectionstatechange", (state) => {
+          logger("Send transport connection state:", state);
         });
 
-        this.sendTransport.on('connectionstatechange', state => {
-          logger('Send transport connection state:', state);
+        this.sendTransport.on("connectionstatechange", (state) => {
+          logger("Send transport connection state:", state);
         });
 
-        this.sendTransport.on('dtlsstatechange', dtlsState => {
-          logger('Send transport DTLS state:', dtlsState);
+        this.sendTransport.on("dtlsstatechange", (dtlsState) => {
+          logger("Send transport DTLS state:", dtlsState);
         });
 
         this.sendTransport.on(
@@ -822,7 +808,6 @@ class SimpleMediasoupPeer {
 
               callback({ id: response.id });
               logger(`Created ${kind} producer with id: ${response.id}`);
-
             } catch (error) {
               console.error("Error creating producer:", error);
               errback(error);
@@ -856,7 +841,6 @@ class SimpleMediasoupPeer {
         //   }
         // );
       }
-
     } catch (error) {
       console.error("Error creating send transport:", error);
       throw error;
@@ -878,7 +862,8 @@ class SimpleMediasoupPeer {
       if (!response || !response.transportInfo) {
         throw new Error("Invalid transport response from server");
       }
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
+        response.transportInfo;
 
       if (!this.device) {
         throw new Error("Mediasoup device not initialized");
@@ -902,14 +887,13 @@ class SimpleMediasoupPeer {
           ) => {
             logger("Connecting Receive Transport!");
             try {
-              await this.socket
-                .request("mediasoupSignaling", {
-                  type: "connectWebRtcTransport",
-                  data: {
-                    transportId: this.recvTransport.id,
-                    dtlsParameters,
-                  },
-                });
+              await this.socket.request("mediasoupSignaling", {
+                type: "connectWebRtcTransport",
+                data: {
+                  transportId: this.recvTransport.id,
+                  dtlsParameters,
+                },
+              });
               callback();
             } catch (error) {
               console.error("Error connecting receive transport:", error);
@@ -918,31 +902,30 @@ class SimpleMediasoupPeer {
           }
         );
 
-        this.recvTransport.on('icegatheringstatechange', state => {
-          logger('Receive transport ICE gathering state:', state);
+        this.recvTransport.on("icegatheringstatechange", (state) => {
+          logger("Receive transport ICE gathering state:", state);
         });
 
-        this.recvTransport.on('iceconnectionstatechange', state => {
-          logger('Receive transport ICE connection state:', state);
+        this.recvTransport.on("iceconnectionstatechange", (state) => {
+          logger("Receive transport ICE connection state:", state);
         });
 
-        this.recvTransport.on('connectionstatechange', state => {
-          logger('Receive transport connection state:', state);
-          if (state === 'failed' || state === 'closed') {
-            console.error('Receive transport connection failed or closed');
-            logger('ICE connection state:', this.recvTransport.iceConnectionState);
-            logger('DTLS state:', this.recvTransport.dtlsState);
+        this.recvTransport.on("connectionstatechange", (state) => {
+          logger("Receive transport connection state:", state);
+          if (state === "failed" || state === "closed") {
+            console.error("Receive transport connection failed or closed");
+            logger("ICE connection state:", this.recvTransport.iceConnectionState);
+            logger("DTLS state:", this.recvTransport.dtlsState);
           }
         });
 
-        this.recvTransport.on('dtlsstatechange', dtlsState => {
-          logger('Receive transport DTLS state:', dtlsState);
-          if (dtlsState === 'failed') {
-            console.error('DTLS connection failed on receive transport');
-            logger('ICE connection state at DTLS failure:', this.recvTransport.iceConnectionState);
+        this.recvTransport.on("dtlsstatechange", (dtlsState) => {
+          logger("Receive transport DTLS state:", dtlsState);
+          if (dtlsState === "failed") {
+            console.error("DTLS connection failed on receive transport");
+            logger("ICE connection state at DTLS failure:", this.recvTransport.iceConnectionState);
           }
         });
-
       }
 
       logger("Created receive transport!");
@@ -951,7 +934,6 @@ class SimpleMediasoupPeer {
       throw error;
     }
   }
-
 }
 
 export { SimpleMediasoupPeer };
