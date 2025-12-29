@@ -44,20 +44,15 @@ this.consumers = {
     }
 }
 
-// a set of peer IDs of peers we'd like to remain connected to
-// this persists through a disconnection event
-this.desiredPeerConnections = new Set();
-
 */
 import * as mediasoupClient from "mediasoup-client";
+import { debug } from "debug";
 import { io } from "socket.io-client";
-const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer");
 
 class SimpleMediasoupPeer {
   constructor(options = {}) {
     const defaultOptions = {
-      autoConnect: true,
       roomId: null,
       // socket options
       socket: null,
@@ -93,7 +88,7 @@ class SimpleMediasoupPeer {
 
     this.producers = {};
     this.consumers = {};
-    this.dataConsumers = {};
+    // this.dataConsumers = {}; // commented out for testing
 
     this.sendTransport = null;
     this.recvTransport = null;
@@ -101,9 +96,8 @@ class SimpleMediasoupPeer {
     this.tracksToProduce = {};
 
     this.latestAvailableProducers = {};
-    this.desiredPeerConnections = new Set();
 
-    this.publiclyExposedEvents = new Set(["peerConnection", "peerDisconnection", "track", "data"]);
+    this.publiclyExposedEvents = new Set(["track", "trackRemoved"]);
     this.userDefinedCallbacks = {};
 
     // add promisified socket request to make our lives easier
@@ -128,19 +122,19 @@ class SimpleMediasoupPeer {
 
     // all mediasoupSignaling will come through on this socket event
     this.socket.on("mediasoupSignaling", (data) => {
-      this.handleSocketMessage(data);
+      this._handleSocketMessage(data);
     });
 
     this.socket.on("connect", async () => {
-      console.log("Connected to Socket Server with ID: ", this.socket.id);
-
       try {
-        await this.disconnectFromMediasoup();
+        this._disconnectFromMediasoup();
         await this.initializeMediasoupConnection();
       } catch (error) {
         console.error("Error connecting to socket connect handler:", error);
       }
-      await this.joinRoom(this.options.roomId);
+      if (this.options.roomId) {
+        await this.joinRoom(this.options.roomId);
+      }
     });
 
     // test reconnecting to the socket
@@ -148,7 +142,6 @@ class SimpleMediasoupPeer {
     //   this.socket.io.disconnect(); // kills engine + all namespaces
     //   this.socket.io.connect();    // rebuilds everything
     // }, 5000);
-
 
     // this.socket.on("clients", (ids) => {
     //   logger("Got clients: ",ids)
@@ -163,10 +156,9 @@ class SimpleMediasoupPeer {
     // });
   }
 
-
   async joinRoom(roomId) {
     if (!roomId) {
-      console.log("Please enter a room id to join");
+      console.warn("Please enter a room id to join");
       return;
     }
 
@@ -181,7 +173,11 @@ class SimpleMediasoupPeer {
 
   async _joinRoom() {
     try {
-      if (!this.mediasoupConnectionInitialized || this.desiredRoomId === null || this.desiredRoomId === this.currentRoomId) {
+      if (
+        !this.mediasoupConnectionInitialized ||
+        this.desiredRoomId === null ||
+        this.desiredRoomId === this.currentRoomId
+      ) {
         return;
       }
 
@@ -201,7 +197,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async leaveRoom({ roomId }) {
+  async leaveRoom(roomId) {
     if (!roomId) {
       logger("No roomId provided to leaveRoom");
       return;
@@ -219,7 +215,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  callEventCallback(event, data) {
+  _callEventCallback(event, data) {
     const callback = this.userDefinedCallbacks[event];
     if (callback) {
       callback(data);
@@ -228,7 +224,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async disconnectFromMediasoup() {
+  _disconnectFromMediasoup() {
     logger("Clearing SimpleMediasoupPeer!");
     this.mediasoupConnectionInitialized = false;
     this.currentRoomId = null;
@@ -251,23 +247,20 @@ class SimpleMediasoupPeer {
   }
 
   async initializeMediasoupConnection() {
-
     try {
-      this.setupMediasoupDevice();
-      await this.connectToMediasoupRouter();
-      await this.createSendTransport();
-      await this.createRecvTransport();
+      this._setupMediasoupDevice();
+      await this._connectToMediasoupRouter();
+      await this._createSendTransport();
+      await this._createRecvTransport();
 
-      await this.addDataProducer();
+      // await this.addDataProducer();
 
+      // if there are tracks to produce, add them now
       for (const label in this.tracksToProduce) {
-        const track = this.tracksToProduce[label].track;
-        const broadcast = this.tracksToProduce[label].broadcast;
-        const customEncodings = this.tracksToProduce[label].customEncodings;
-        if (track.readyState !== "live") {
-          console.warn("Previously added track is not live, skipping");
+        if (this.tracksToProduce[label].track.readyState !== "live") {
+          console.warn("Track is not live, skipping");
         } else {
-          this.addProducer(track, label, broadcast, customEncodings);
+          await this._addProducer(this.tracksToProduce[label]);
         }
       }
 
@@ -280,20 +273,22 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addTrack(track, label, broadcast = false, customEncodings = false) {
+  async addTrack({ track, label, customEncodings = false }) {
     this.tracksToProduce[label] = {
       track,
-      broadcast,
+      label,
       customEncodings,
     };
-    try {
-      await this.addProducer(track, label, broadcast, customEncodings);
-    } catch (error) {
-      console.error("Error adding producer for track:", error);
+
+    if (!this.sendTransport) {
+      console.warn("Send transport not available, not adding track yet.");
+      return;
     }
+
+    await this._addProducer(this.tracksToProduce[label]);
   }
 
-  async removeTrack(label) {
+  async removeTrack({ label }) {
     logger("Removing track with label:", label);
     try {
       if (this.producers[label]) {
@@ -308,27 +303,22 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async addProducer(track, label, broadcast, customEncodings) {
-    let producer;
+  async _addProducer({ track, label, customEncodings }) {
+    try {
+      let producer;
 
-    console.log("Adding producer", label, track, broadcast, customEncodings);
-    if (track.readyState !== "live") {
-      throw new Error("Track is not live");
-      return;
-    }
+      console.log("Adding producer", label, track, customEncodings);
+      if (track.readyState !== "live") {
+        throw new Error("Track is not live");
+        return;
+      }
 
-    if (this.producers[label] && !this.producers[label].closed) {
-      logger(`Already producing ${label}! Swapping track!`);
-      try {
+      if (this.producers[label] && !this.producers[label].closed) {
+        logger(`Already producing ${label}! Swapping track!`);
         this.producers[label].replaceTrack({ track });
         return;
-      } catch (error) {
-        console.error(`Error replacing track for ${label}:`, error);
-        // Continue with creating new producer
       }
-    }
 
-    try {
       if (!this.sendTransport) {
         throw new Error("Send transport not available");
       }
@@ -351,7 +341,6 @@ class SimpleMediasoupPeer {
           },
           appData: {
             label,
-            broadcast,
           },
         });
       } else if (track.kind === "audio") {
@@ -369,7 +358,6 @@ class SimpleMediasoupPeer {
           encodings,
           appData: {
             label,
-            broadcast,
           },
         });
       }
@@ -409,142 +397,59 @@ class SimpleMediasoupPeer {
       }
 
       this.producers[label] = producer;
-
     } catch (error) {
       console.error("Error adding producer:", error);
     }
   }
 
-  async addDataProducer() {
-    logger("addDataProducer()");
+  // async addDataProducer() {
+  //   logger("addDataProducer()");
 
-    try {
-      if (!this.sendTransport) {
-        throw new Error("Send transport not available");
-      }
+  //   try {
+  //     if (!this.sendTransport) {
+  //       throw new Error("Send transport not available");
+  //     }
 
-      // Create chat DataProducer.
-      let dataProducer = await this.sendTransport.produceData({
-        ordered: false,
-        maxRetransmits: 1,
-        label: "data",
-        priority: "medium",
-        appData: { type: "data" },
-      });
+  //     // Create chat DataProducer.
+  //     let dataProducer = await this.sendTransport.produceData({
+  //       ordered: false,
+  //       maxRetransmits: 1,
+  //       label: "data",
+  //       priority: "medium",
+  //       appData: { type: "data" },
+  //     });
 
-      if (dataProducer) {
-        this.producers["data"] = dataProducer;
+  //     if (dataProducer) {
+  //       this.producers["data"] = dataProducer;
 
-        dataProducer.on("transportclose", () => {
-          logger('DataProducer "transportclose" event');
-          dataProducer = null;
-        });
+  //       dataProducer.on("transportclose", () => {
+  //         logger('DataProducer "transportclose" event');
+  //         dataProducer = null;
+  //       });
 
-        dataProducer.on("open", () => {
-          logger('DataProducer "open" event');
-        });
+  //       dataProducer.on("open", () => {
+  //         logger('DataProducer "open" event');
+  //       });
 
-        dataProducer.on("close", () => {
-          logger('DataProducer "close" event');
-          dataProducer = null;
-        });
+  //       dataProducer.on("close", () => {
+  //         logger('DataProducer "close" event');
+  //         dataProducer = null;
+  //       });
 
-        dataProducer.on("error", (error) => {
-          logger('DataProducer "error" event:%o', error);
-        });
+  //       dataProducer.on("error", (error) => {
+  //         logger('DataProducer "error" event:%o', error);
+  //       });
 
-        dataProducer.on("bufferedamountlow", () => {
-          logger('DataProducer "bufferedamountlow" event');
-        });
-      }
-    } catch (error) {
-      console.error("addDataProducer() | failed:%o", error);
-    }
-  }
+  //       dataProducer.on("bufferedamountlow", () => {
+  //         logger('DataProducer "bufferedamountlow" event');
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("addDataProducer() | failed:%o", error);
+  //   }
+  // }
 
-  ensureConnectedToDesiredPeerConnections() {
-    // console.log("ensure connections");
-    // console.log("latest available producers:", this.latestAvailableProducers);
-    // console.log("desired connections:", this.desiredPeerConnections);
-
-    if (this.latestAvailableProducers && typeof this.latestAvailableProducers === 'object') {
-      for (const peerId in this.latestAvailableProducers) {
-        if (peerId === this.socket.id) continue; // ignore our own streams
-
-        // check all their producers
-        if (this.latestAvailableProducers[peerId].producers) {
-          for (const producerId in this.latestAvailableProducers[peerId].producers) {
-            const shouldConsume =
-              this.desiredPeerConnections.has(peerId) ||
-              this.latestAvailableProducers[peerId].producers[producerId].broadcast ||
-              this.options.autoConnect;
-
-            if (shouldConsume) {
-              const consumer = this.consumers[peerId] && this.consumers[peerId][producerId];
-              if (!consumer) {
-                this.requestConsumer(peerId, producerId);
-              }
-            }
-          }
-        }
-
-        // check all available data producers
-        if (this.latestAvailableProducers[peerId].dataProducers) {
-          for (const dataProducerId in this.latestAvailableProducers[peerId].dataProducers) {
-            const shouldConsume =
-              this.desiredPeerConnections.has(peerId) ||
-              this.latestAvailableProducers[peerId].dataProducers[dataProducerId].broadcast ||
-              this.options.autoConnect;
-
-            if (shouldConsume) {
-              const dataConsumer =
-                this.dataConsumers[peerId] && this.dataConsumers[peerId][dataProducerId];
-              if (!dataConsumer) {
-                this.requestDataConsumer(peerId, dataProducerId);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  async requestConsumer(producingPeerId, producerId) {
-    try {
-      if (!this.consumers[producingPeerId]) {
-        this.consumers[producingPeerId] = {};
-      }
-      await this.socket.request("mediasoupSignaling", {
-        type: "createConsumer",
-        data: {
-          producingPeerId,
-          producerId,
-        },
-      });
-    } catch (error) {
-      console.error("Error requesting consumer:", error);
-    }
-  }
-
-  async requestDataConsumer(producingPeerId, producerId) {
-    try {
-      if (!this.dataConsumers[producingPeerId]) {
-        this.dataConsumers[producingPeerId] = {};
-      }
-
-      await this.socket.request("mediasoupSignaling", {
-        type: "createDataConsumer",
-        data: {
-          producingPeerId,
-          producerId,
-        },
-      });
-    } catch (error) {
-      console.error("Error requesting data consumer:", error);
-    }
-  }
-
-  async createConsumer(consumerInfo) {
+  async _createConsumer(consumerInfo) {
     try {
       const { peerId, producerId, id, kind, rtpParameters, type, appData, producerPaused } =
         consumerInfo;
@@ -582,24 +487,16 @@ class SimpleMediasoupPeer {
           });
         }
 
-        // tell the server to start the newly created consumer
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "resumeConsumer",
-            data: {
-              producerId: stableProducerId,
-            },
-          });
-        } catch (error) {
-          console.error("Error resuming consumer:", error);
-        }
+        await this._resumeConsumer(consumer);
       }
 
       if (consumer && consumer.track) {
-        this.callEventCallback("track", {
+        this._callEventCallback("track", {
           track: consumer.track,
           peerId: consumer.appData.peerId,
           label: consumer.appData.label,
+          pause: () => this._pauseConsumer(consumer),
+          resume: () => this._resumeConsumer(consumer),
         });
       }
     } catch (error) {
@@ -607,89 +504,63 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async createDataConsumer(data) {
-    const { peerId, dataProducerId, id, sctpStreamParameters, label, protocol, appData } = data;
+  // async createDataConsumer(data) {
+  //   const { peerId, dataProducerId, id, sctpStreamParameters, label, protocol, appData } = data;
 
-    try {
-      if (!this.recvTransport) {
-        throw new Error("Receive transport not available");
-      }
+  //   try {
+  //     if (!this.recvTransport) {
+  //       throw new Error("Receive transport not available");
+  //     }
 
-      const dataConsumer = await this.recvTransport.consumeData({
-        id,
-        dataProducerId,
-        sctpStreamParameters,
-        label,
-        protocol,
-        appData: { ...appData, peerId }, // Trick.
-      });
+  //     const dataConsumer = await this.recvTransport.consumeData({
+  //       id,
+  //       dataProducerId,
+  //       sctpStreamParameters,
+  //       label,
+  //       protocol,
+  //       appData: { ...appData, peerId }, // Trick.
+  //     });
 
-      if (dataConsumer) {
-        // Store in the map.
-        const stableDataProducerId = dataConsumer.dataProducerId; // capture id before any potential nulling
-        this.dataConsumers[peerId][stableDataProducerId] = dataConsumer;
+  //     if (dataConsumer) {
+  //       // Store in the map.
+  //       const stableDataProducerId = dataConsumer.dataProducerId; // capture id before any potential nulling
+  //       this.dataConsumers[peerId][stableDataProducerId] = dataConsumer;
 
-        dataConsumer.on("transportclose", () => {
-          logger("TODO deal with transport close for data consumers");
-        });
+  //       dataConsumer.on("transportclose", () => {
+  //         logger("TODO deal with transport close for data consumers");
+  //       });
 
-        dataConsumer.on("open", () => {
-          logger('DataConsumer "open" event');
-        });
+  //       dataConsumer.on("open", () => {
+  //         logger('DataConsumer "open" event');
+  //       });
 
-        dataConsumer.on("close", () => {
-          logger('DataConsumer "close" event');
-        });
+  //       dataConsumer.on("close", () => {
+  //         logger('DataConsumer "close" event');
+  //       });
 
-        dataConsumer.on("error", (error) => {
-          logger('DataConsumer "error" event:%o', error);
-        });
+  //       dataConsumer.on("error", (error) => {
+  //         logger('DataConsumer "error" event:%o', error);
+  //       });
 
-        dataConsumer.on("message", (message) => {
-          this.callEventCallback("data", { from: dataConsumer.appData.peerId, data: message });
-          logger("Received data", message);
-        });
-      }
-    } catch (error) {
-      console.error('"newDataConsumer" request failed:%o', error);
-    }
-  }
+  //       dataConsumer.on("message", (message) => {
+  //         this._callEventCallback("data", { from: dataConsumer.appData.peerId, data: message });
+  //         logger("Received data", message);
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error('"newDataConsumer" request failed:%o', error);
+  //   }
+  // }
 
-  updatePeersFromSyncData(syncData) {
-    this.latestAvailableProducers = syncData;
-    this.ensureConnectedToDesiredPeerConnections();
-  }
-
-  async handleSocketMessage(request) {
+  async _handleSocketMessage(request) {
     switch (request.type) {
-      case "peerConnection": {
-        console.log("peer connection", request.data);
-        request.data.forEach((peerId) => {
-          this.callEventCallback("peerConnection", { peerId });
-        });
-        break;
-      }
-
-      case "peerDisconnection": {
-        console.log("peer disonnection", request.data);
-        request.data.forEach((peerId) => {
-          this.callEventCallback("peerDisconnection", { peerId });
-        });
-        break;
-      }
-
-      case "availableProducers": {
-        this.updatePeersFromSyncData(request.data);
-        break;
-      }
-
       case "createConsumer": {
-        this.createConsumer(request.data);
+        this._createConsumer(request.data);
         break;
       }
 
       case "createDataConsumer": {
-        this.createDataConsumer(request.data);
+        // this.createDataConsumer(request.data); // commented out for testing
         break;
       }
 
@@ -699,37 +570,21 @@ class SimpleMediasoupPeer {
         const { producingPeerId, producerId } = request.data;
 
         if (this.consumers[producingPeerId] && this.consumers[producingPeerId][producerId]) {
-          this.consumers[producingPeerId][producerId].close();
+          const consumer = this.consumers[producingPeerId][producerId];
+
+          // Notify developer that this track is being removed
+          this._callEventCallback("trackRemoved", {
+            peerId: consumer.appData.peerId,
+            label: consumer.appData.label,
+            producerId: producerId,
+          });
+
+          consumer.close();
           delete this.consumers[producingPeerId][producerId];
         }
 
         break;
       }
-    }
-  }
-
-  async removePeer(otherPeerId) {
-    if (this.consumers[otherPeerId]) {
-
-      for (let producerId in this.consumers[otherPeerId]) {
-        let consumer = this.consumers[otherPeerId][producerId];
-        this.closeConsumer(consumer);
-      }
-      delete this.consumers[otherPeerId];
-    }
-  }
-
-  closeConsumer(consumer) {
-    logger("Closing consumer:", consumer.id);
-    try {
-      this.socket.request("mediasoupSignaling", {
-        type: "closeConsumer",
-        data: {
-          producerId: consumer.producerId,
-        },
-      });
-    } catch (error) {
-      console.error("Error closing consumer:", error);
     }
   }
 
@@ -741,11 +596,17 @@ class SimpleMediasoupPeer {
   add a callback for a given event
   */
   on(event, callback) {
-    if (typeof event !== 'string') {
-      console.error(`Event name must be one of the following: ${this.publiclyExposedEvents.join(', ')}`);
+    console.log("event", event);
+    console.log("callback", typeof callback);
+    if (typeof event !== "string") {
+      console.error(
+        `Event name must be one of the following: ${this.publiclyExposedEvents.join(", ")}`
+      );
       return;
     }
-    if (typeof callback !== 'function') {
+    console.log("event", event);
+    console.log("callback", typeof callback);
+    if (typeof callback !== "function") {
       console.error("Callback must be a function");
       return;
     }
@@ -756,45 +617,32 @@ class SimpleMediasoupPeer {
     }
   }
 
-  /*
-  connect to a given peer
-  */
-  connectToPeer(otherPeerId) {
-    if (!otherPeerId) {
-      console.warn("No peer ID provided to connectToPeer");
-      return;
-    }
-
-    logger("Attempting to connect to peer", otherPeerId);
-    this.desiredPeerConnections.add(otherPeerId);
-    console.log(this.latestAvailableProducers);
-
-    if (this.latestAvailableProducers[otherPeerId] && this.latestAvailableProducers[otherPeerId].producers) {
-      for (const producerId in this.latestAvailableProducers[otherPeerId].producers) {
-        const existingConsumer =
-          this.consumers[otherPeerId] && this.consumers[otherPeerId][producerId];
-        logger("existingConsumer:", existingConsumer);
-        if (!existingConsumer) {
-          this.requestConsumer(otherPeerId, producerId);
-        }
-      }
+  async _resumeConsumer(consumer) {
+    try {
+      await this.socket.request("mediasoupSignaling", {
+        type: "resumeConsumer",
+        data: {
+          producerId: consumer.producerId,
+        },
+      });
+      consumer.resume();
+    } catch (error) {
+      console.error("Error resuming consumer:", error);
     }
   }
 
-  /*
-  disconnect from a given peer
-  */
-  disconnectFromPeer(otherPeerId) {
-    if (this.consumers[otherPeerId]) {
-      for (let producerId in this.consumers[otherPeerId]) {
-        const consumer = this.consumers[otherPeerId][producerId];
-        if (consumer) {
-          this.closeConsumer(consumer);
-        }
-      }
-      delete this.consumers[otherPeerId];
+  async _pauseConsumer(consumer) {
+    try {
+      await this.socket.request("mediasoupSignaling", {
+        type: "pauseConsumer",
+        data: {
+          producerId: consumer.producerId,
+        },
+      });
+      consumer.pause();
+    } catch (error) {
+      console.error("Error pausing consumer:", error);
     }
-    this.desiredPeerConnections.delete(otherPeerId);
   }
 
   /*
@@ -809,23 +657,8 @@ class SimpleMediasoupPeer {
 
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
-
-      // by default do not let us pause a broadcasts
-      if (!consumer || consumer.appData.broadcast) continue;
       if (!consumer.paused) {
-        logger("Pausing consumer!");
-
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "pauseConsumer",
-            data: {
-              producerId: consumer.producerId,
-            },
-          });
-          consumer.pause();
-        } catch (error) {
-          console.error("Error pausing consumer:", error);
-        }
+        await this._pauseConsumer(consumer);
       }
     }
   }
@@ -842,21 +675,8 @@ class SimpleMediasoupPeer {
 
     for (const producerId in consumers) {
       const consumer = consumers[producerId];
-
-      if (!consumer) continue;
       if (consumer.paused) {
-        logger("Resuming consumer!");
-        try {
-          await this.socket.request("mediasoupSignaling", {
-            type: "resumeConsumer",
-            data: {
-              producerId: consumer.producerId,
-            },
-          });
-          consumer.resume();
-        } catch (error) {
-          console.error("Error resuming consumer:", error);
-        }
+        await this._resumeConsumer(consumer);
       }
     }
   }
@@ -864,23 +684,23 @@ class SimpleMediasoupPeer {
   /*
   send data to all peers in room (if connected)
   */
-  send(data) {
-    if (!this.producers["data"]) {
-      console.warn("Data producer not available");
-      return;
-    }
-    try {
-      this.producers["data"].send(data);
-    } catch (error) {
-      console.error("DataProducer.send() failed:%o", error);
-    }
-  }
+  // send(data) {
+  //   if (!this.producers["data"]) {
+  //     console.warn("Data producer not available");
+  //     return;
+  //   }
+  //   try {
+  //     this.producers["data"].send(data);
+  //   } catch (error) {
+  //     console.error("DataProducer.send() failed:%o", error);
+  //   }
+  // }
 
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   //~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//~~**~~//
   // Initial Setup
 
-  setupMediasoupDevice() {
+  _setupMediasoupDevice() {
     try {
       this.device = new mediasoupClient.Device();
     } catch (err) {
@@ -889,7 +709,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async connectToMediasoupRouter() {
+  async _connectToMediasoupRouter() {
     try {
       const response = await this.socket.request("mediasoupSignaling", {
         type: "getRouterRtpCapabilities",
@@ -905,7 +725,7 @@ class SimpleMediasoupPeer {
     }
   }
 
-  async createSendTransport() {
+  async _createSendTransport() {
     try {
       const response = await this.socket.request("mediasoupSignaling", {
         type: "createWebRtcTransport",
@@ -920,7 +740,8 @@ class SimpleMediasoupPeer {
       if (!response || !response.transportInfo) {
         throw new Error("Invalid transport response from server");
       }
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
+        response.transportInfo;
 
       if (!this.device) {
         throw new Error("Mediasoup device not initialized");
@@ -958,6 +779,17 @@ class SimpleMediasoupPeer {
             }
           }
         );
+        this.sendTransport.on("connectionstatechange", (state) => {
+          logger("Send transport connection state:", state);
+        });
+
+        this.sendTransport.on("connectionstatechange", (state) => {
+          logger("Send transport connection state:", state);
+        });
+
+        this.sendTransport.on("dtlsstatechange", (dtlsState) => {
+          logger("Send transport DTLS state:", dtlsState);
+        });
 
         this.sendTransport.on(
           "produce",
@@ -976,7 +808,6 @@ class SimpleMediasoupPeer {
 
               callback({ id: response.id });
               logger(`Created ${kind} producer with id: ${response.id}`);
-
             } catch (error) {
               console.error("Error creating producer:", error);
               errback(error);
@@ -984,40 +815,39 @@ class SimpleMediasoupPeer {
           }
         );
 
-        this.sendTransport.on(
-          "producedata",
-          async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
-            try {
-              // eslint-disable-next-line no-shadow
-              const response = await this.socket.request("mediasoupSignaling", {
-                type: "produceData",
-                data: {
-                  transportId: this.sendTransport.id,
-                  sctpStreamParameters,
-                  label,
-                  protocol,
-                  appData,
-                },
-              });
+        // this.sendTransport.on(
+        //   "producedata",
+        //   async ({ sctpStreamParameters, label, protocol, appData }, callback, errback) => {
+        //     try {
+        //       // eslint-disable-next-line no-shadow
+        //       const response = await this.socket.request("mediasoupSignaling", {
+        //         type: "produceData",
+        //         data: {
+        //           transportId: this.sendTransport.id,
+        //           sctpStreamParameters,
+        //           label,
+        //           protocol,
+        //           appData,
+        //         },
+        //       });
 
-              callback({ id: response.id });
-              logger("Created dataproducer with id:", response.id);
+        //       callback({ id: response.id });
+        //       logger("Created dataproducer with id:", response.id);
 
-            } catch (error) {
-              console.error("Error creating data producer:", error);
-              errback(error);
-            }
-          }
-        );
+        //     } catch (error) {
+        //       console.error("Error creating data producer:", error);
+        //       errback(error);
+        //     }
+        //   }
+        // );
       }
-
     } catch (error) {
       console.error("Error creating send transport:", error);
       throw error;
     }
   }
 
-  async createRecvTransport() {
+  async _createRecvTransport() {
     try {
       const response = await this.socket.request("mediasoupSignaling", {
         type: "createWebRtcTransport",
@@ -1032,7 +862,8 @@ class SimpleMediasoupPeer {
       if (!response || !response.transportInfo) {
         throw new Error("Invalid transport response from server");
       }
-      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = response.transportInfo;
+      const { id, iceParameters, iceCandidates, dtlsParameters, sctpParameters } =
+        response.transportInfo;
 
       if (!this.device) {
         throw new Error("Mediasoup device not initialized");
@@ -1056,14 +887,13 @@ class SimpleMediasoupPeer {
           ) => {
             logger("Connecting Receive Transport!");
             try {
-              await this.socket
-                .request("mediasoupSignaling", {
-                  type: "connectWebRtcTransport",
-                  data: {
-                    transportId: this.recvTransport.id,
-                    dtlsParameters,
-                  },
-                });
+              await this.socket.request("mediasoupSignaling", {
+                type: "connectWebRtcTransport",
+                data: {
+                  transportId: this.recvTransport.id,
+                  dtlsParameters,
+                },
+              });
               callback();
             } catch (error) {
               console.error("Error connecting receive transport:", error);
@@ -1071,6 +901,31 @@ class SimpleMediasoupPeer {
             }
           }
         );
+
+        this.recvTransport.on("icegatheringstatechange", (state) => {
+          logger("Receive transport ICE gathering state:", state);
+        });
+
+        this.recvTransport.on("iceconnectionstatechange", (state) => {
+          logger("Receive transport ICE connection state:", state);
+        });
+
+        this.recvTransport.on("connectionstatechange", (state) => {
+          logger("Receive transport connection state:", state);
+          if (state === "failed" || state === "closed") {
+            console.error("Receive transport connection failed or closed");
+            logger("ICE connection state:", this.recvTransport.iceConnectionState);
+            logger("DTLS state:", this.recvTransport.dtlsState);
+          }
+        });
+
+        this.recvTransport.on("dtlsstatechange", (dtlsState) => {
+          logger("Receive transport DTLS state:", dtlsState);
+          if (dtlsState === "failed") {
+            console.error("DTLS connection failed on receive transport");
+            logger("ICE connection state at DTLS failure:", this.recvTransport.iceConnectionState);
+          }
+        });
       }
 
       logger("Created receive transport!");
@@ -1079,7 +934,6 @@ class SimpleMediasoupPeer {
       throw error;
     }
   }
-
 }
 
 export { SimpleMediasoupPeer };

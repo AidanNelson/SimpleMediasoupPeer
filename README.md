@@ -56,13 +56,13 @@ This peer has the following methods available:
 
 ```js
 // join a room!
-peer.joinRoom("MyCoolRoomName");
+await peer.joinRoom("MyCoolRoomName");
 
 // leave a room
-peer.leaveRoom("MyCoolRoomName");
+await peer.leaveRoom("MyCoolRoomName");
 
 // deal with incoming tracks
-peer.on("track", ({ track, peerId, label }) => {
+peer.on("track", ({ track, peerId, label, pause, resume }) => {
     // do something with this new track
     console.log(
         "New",
@@ -72,31 +72,34 @@ peer.on("track", ({ track, peerId, label }) => {
         "with label",
         label
     );
+    // you can pause/resume individual tracks using the provided methods
 });
 
-// deal with new peers in the room
-peer.on("peerConnection", ({ peerId }) => {
-    console.log("Peer with id", peerId, "joined the room");
-});
-
-// deal with peers disconnecting
-peer.on("peerDisconnection", ({ peerId }) => {
-    console.log("Peer with id", peerId, "left the room");
+// get notified when a track is removed (peer left, track ended, etc.)
+peer.on("trackRemoved", ({ peerId, label, producerId }) => {
+    console.log("Track", label, "from peer", peerId, "was removed");
+    // clean up any UI elements, etc.
 });
 
 // add a MediaStream track to your peer object
-peer.addTrack(videoTrack, "webcam");
+await peer.addTrack({ track: videoTrack, label: "webcam" });
 
-// connect to a given peer (based on their socket ID)
-peer.connectToPeer(otherPeerID);
+// add a track with custom encodings (useful for screenshare/broadcast)
+await peer.addTrack({ 
+    track: videoTrack, 
+    label: "screenshare",
+    customEncodings: [
+        { maxBitrate: 3000000 }, // 3 Mbps
+    ]
+});
 
-// broadcast a track (so that connected peers auto-subscribe)
-peer.addTrack(videoTrack, "webcam", true);
+// remove a track
+await peer.removeTrack({ label: "webcam" });
 
-// resume all conected tracks from a given peer
+// resume all connected tracks from a given peer
 peer.resumePeer(otherPeerID);
 
-// pause all connected tracks from a given peen
+// pause all connected tracks from a given peer
 peer.pausePeer(otherPeerID);
 ```
 
@@ -115,47 +118,4 @@ That depends on how they are several things: total number of connections, the se
 
 ## Development
 
-Interested in developing on this library locally? Read on [here](./development.md)!
-
-## To Do
-
-### Improvements
-
--   [x] -   Update to logging library
--   [ ] -   Optionally set custom update frequency on server?
--   [ ] -   Override update frequency if there is a broadcast?
--   [ ] -   Allow metadata instead of label?
--   [x] -   Allow for auto-connect flag on client-side?
--   [ ] -   Add method to disconnect from peer and cleanup any consumers
--   [ ] -   Support data producer / consumer
--   [x] -   Support multiple rooms?
--   [ ] -   Add cleanup method for tracks after broadcaster disconnects.
--   [ ] -   "Listen on server side for “transportclose” and “producerclose” in the Consumer and notify the client" (https://mediasoup.discourse.group/t/detecting-consumer-closed-track-ended/592)
-
-### Bugs and Testing
-
--   [ ] -   What is proper behavior for change in socket ID?
--   [ ] -   if someone has previously added then paused a peer, then they remove and add a track, will the paused state be respected?
--   [ ] -   ensure tranports have successfully connected on client side before attempting to produce.
--   [ ] -   add a way to close a producer completely
-
-### Done
-
--   [x] -   socket glitches and reassigning IDs
--   [x] -   make it work with multiple routers
--   [x] -   optionally add encodings for addTrack function? for screenshare quality
--   [x] -   pass in IP rather than using .env?
--   [x] -   better alternative to ontrack?
--   [x] -   Add ability to switch track
--   [x] -   ensure load balancing across workers?
--   [x] -   ensure maximum number of workers created
--   [x] -   UnhandledPromiseRejectionWarning: TypeError: a Producer with same id "9d89745e-af87-4372-80e8-e9f6282c15ee" already exists
--   [x] -   UnhandledPromiseRejectionWarning: Error: a Producer with same producerId already exists
--   [x] -   separate examples from library code
--   [x] -   pre-build library?
--   [x] -   when connecting then clicking resume, how to ensure connection before we've resumed (or at least fail gracefully?)
-
-## Examples
-
--   [x] -   simple example
--   [x] -   broadcast example
+Interested in developing on this library locally? Read on [here](./development.md).

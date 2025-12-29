@@ -9,19 +9,30 @@
     "type": "git",
     "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
   },
-  "source": "index.js",
-  "default": "dist/SimpleMediasoupPeer.js",
-  "main": "dist/SimpleMediasoupPeer.js",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "dist/SimpleMediasoupPeer.js"
+  ],
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "dev": "webpack-dev-server --mode=development"
   },
   "author": "",
   "license": "MIT",
-  "devDependencies": {
+  "dependencies": {
     "debug": "^4.3.4",
     "mediasoup-client": "^3.16.7",
-    "socket.io-client": "^4.7.4",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
     "webpack": "^5.90.1",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"

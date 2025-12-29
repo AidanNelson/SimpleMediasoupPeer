@@ -1,14 +1,16 @@
 const path = require("path");
 
+// ES Module build for modern build systems (React, Vue, etc.)
 module.exports = {
   entry: "./index.js",
+  experiments: {
+    outputModule: true,
+  },
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "SimpleMediasoupPeer.js",
-    globalObject: "this",
     library: {
-      type: "umd",
-      umdNamedDefine: true,
+      type: "module",
     },
   },
   devServer: {

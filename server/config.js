@@ -1,7 +1,30 @@
 const os = require("os");
+const path = require("path");
+const fs = require("fs");
+const selfsigned = require("selfsigned");
 var ip = require("ip");
 const LOCAL_IP_ADDRESS = ip.address();
 console.log("Local IP Address: ", LOCAL_IP_ADDRESS);
+
+// DTLS certificate paths
+const DTLS_CERT_PATH = path.join(process.cwd(), "dtls-cert.pem");
+const DTLS_KEY_PATH = path.join(process.cwd(), "dtls-key.pem");
+
+// Generate DTLS certificates if they don't exist
+function ensureDtlsCertificates() {
+  if (!fs.existsSync(DTLS_CERT_PATH) || !fs.existsSync(DTLS_KEY_PATH)) {
+    console.log("Generating DTLS certificates...");
+    const pems = selfsigned.generate(
+      [{ name: "commonName", value: "mediasoup" }],
+      { days: 365 * 10, keySize: 2048 }
+    );
+    fs.writeFileSync(DTLS_CERT_PATH, pems.cert);
+    fs.writeFileSync(DTLS_KEY_PATH, pems.private);
+    console.log("DTLS certificates generated.");
+  }
+}
+
+ensureDtlsCertificates();
 
 const config = {
   mediasoup: {
@@ -27,6 +50,9 @@ const config = {
       ],
       rtcMinPort: 40000,
       rtcMaxPort: 49999,
+      // Use shared DTLS certificate for all workers (important for Firefox compatibility)
+      dtlsCertificateFile: DTLS_CERT_PATH,
+      dtlsPrivateKeyFile: DTLS_KEY_PATH,
     },
     // mediasoup Router options.
     // See https://mediasoup.org/documentation/v3/mediasoup/api/#RouterOptions
