@@ -1,7 +1,11 @@
-const path = require("path");
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ES Module build for modern build systems (React, Vue, etc.)
-module.exports = {
+export default {
   entry: "./index.js",
   experiments: {
     outputModule: true,
