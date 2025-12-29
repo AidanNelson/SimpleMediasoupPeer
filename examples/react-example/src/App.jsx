@@ -1,32 +1,29 @@
-import { useState, useEffect, useContext, createContext, useRef, useCallback } from 'react'
-import { SimpleMediasoupPeer } from 'simple-mediasoup-peer-client'
+import { useState, useEffect, useContext, createContext, useRef, useCallback } from "react";
+import { SimpleMediasoupPeer } from "simple-mediasoup-peer-client";
 
 // Create the Realtime Context
-const RealtimeContext = createContext(null)
+const RealtimeContext = createContext(null);
 
 // RealtimeContextProvider Component
-export function RealtimeContextProvider({ children, serverUrl, serverPort = 3000, roomId }) {
-  const peerRef = useRef(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [currentRoomId, setCurrentRoomId] = useState(null)
-  const [localTracks, setLocalTracks] = useState({})
-  const [remoteTracks, setRemoteTracks] = useState({})
+export function RealtimeContextProvider({ children, roomId }) {
+  const [peer, setPeer] = useState(null);
+  const [remoteTracks, setRemoteTracks] = useState({});
 
   // Initialize the SimpleMediasoupPeer client
   useEffect(() => {
-    if (!peerRef.current) {
-      peerRef.current = new SimpleMediasoupPeer({
-        url: serverUrl || window.location.hostname,
-        port: serverPort,
-        roomId: roomId || null,
+    const initializePeer = async () => {
+      const newPeer = new SimpleMediasoupPeer({
+        url: "http://localhost",
+        port: 4000,
+        roomId: "fullMesh",
         autoConnect: true,
-      })
+      });
+      await newPeer.joinRoom(roomId);
+      const handleTrackAdded = (trackData) => {
+        console.log("trackData", trackData);
+        const { track, peerId, label, pause, resume } = trackData;
+        console.log(`Received ${label} track from peer ${peerId}`);
 
-      // Listen for remote tracks
-      peerRef.current.on('track', (trackData) => {
-        const { track, peerId, label, pause, resume } = trackData
-        console.log(`Received ${label} track from peer ${peerId}`)
-        
         setRemoteTracks((prev) => ({
           ...prev,
           [peerId]: {
@@ -39,91 +36,122 @@ export function RealtimeContextProvider({ children, serverUrl, serverPort = 3000
               resume,
             },
           },
-        }))
-      })
+        }));
+      };
+      const handleTrackRemoved = (trackData) => {
+        const { peerId, label } = trackData;
+        console.log(`Track ${label} from peer ${peerId} was removed`);
+        setRemoteTracks((prev) => {
+          const peerTracks = prev[peerId];
+          if (peerTracks) {
+            delete peerTracks[label];
+            if (Object.keys(peerTracks).length === 0) {
+              delete prev[peerId];
+              return { ...prev };
+            }
+            return { ...prev, [peerId]: peerTracks };
+          }
+          return prev;
+        });
+      };
 
-      // Monitor connection state
-      const socket = peerRef.current.socket
-      if (socket) {
-        socket.on('connect', () => {
-          setIsConnected(true)
-          console.log('Connected to signaling server')
-        })
-        
-        socket.on('disconnect', () => {
-          setIsConnected(false)
-          console.log('Disconnected from signaling server')
-        })
-      }
-    }
+      console.log("newPeer", newPeer);
+      // console.log('send transport status', newPeer.sendTransport.connectionState)
+      newPeer.on("track", handleTrackAdded);
+      newPeer.on("trackRemoved", handleTrackRemoved);
 
-    return () => {
-      if (peerRef.current) {
-        // Clean up on unmount
-        peerRef.current.disconnectFromMediasoup()
-      }
-    }
-  }, [serverUrl, serverPort, roomId])
+      setPeer(newPeer);
 
+      return () => {
+        newPeer.off("track", handleTrackAdded);
+        newPeer.off("trackRemoved", handleTrackRemoved);
+        setPeer(null);
+      };
+    };
+    initializePeer();
+  }, [roomId]);
 
   const value = {
-    peer: peerRef.current,
-    isConnected,
-    currentRoomId,
-    localTracks,
+    peer,
     remoteTracks,
-    addTrack,
-    removeTrack,
-    joinRoom,
-    leaveRoom,
-  }
+  };
 
-  return (
-    <RealtimeContext.Provider value={value}>
-      {children}
-    </RealtimeContext.Provider>
-  )
+  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }
 
 // Custom hook to use the Realtime Context
 export function useRealtimeContext() {
-  const context = useContext(RealtimeContext)
+  const context = useContext(RealtimeContext);
   if (!context) {
-    throw new Error('useRealtimeContext must be used within a RealtimeContextProvider')
+    throw new Error("useRealtimeContext must be used within a RealtimeContextProvider");
   }
-  return context
+  return context;
 }
 
-const fullMeshClient = () => {
-  const { peer } = useRealtimeContext()
+const FullMeshRoom = () => {
+  const { peer, localTracks, remoteTracks } = useRealtimeContext();
   useEffect(() => {
     // getusermedia
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then((stream) => {
-      peer.addTrack(stream.getVideoTracks()[0], "video")
-    })
-  })
-  useEffect(() => {
     if (peer) {
-      peer.joinRoom("fullMesh")
+      console.log("peer", peer);
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then((stream) => {
+        peer.addTrack({ track: stream.getVideoTracks()[0], label: "video" });
+      });
     }
-  }, [peer])
+  }, [peer]);
+
+  return (
+    <>
+      {Object.entries(remoteTracks).flatMap(([peerId, peerTracks]) =>
+        Object.entries(peerTracks).map(([label, trackInfo]) => (
+          <RemoteTrack key={`${peerId}-${label}`} trackInfo={trackInfo} />
+        ))
+      )}
+    </>
+  );
+};
+
+const RemoteTrack = ({ trackInfo }) => {
+  const { track, peerId, label, pause, resume } = trackInfo;
+  const [videoRef, setVideoRef] = useState(null);
+  useEffect(() => {
+    if (videoRef) {
+      videoRef.srcObject = new MediaStream([track]);
+      videoRef.play().catch((error) => {
+        console.error("Error playing video:", error);
+      });
+    }
+  }, [videoRef, track]);
+
   return (
     <div>
-      <h1>Full Mesh Client</h1>
-      <p>Connected to the full mesh</p>
+      <video style={{ width: "200px" }} ref={setVideoRef} />
+      <div>
+        <button onClick={pause}>Pause</button>
+        <button onClick={resume}>Resume</button>
+      </div>
     </div>
-  )
-}
+  );
+};
+
 // Example App component
 function App() {
   return (
-    <RealtimeContextProvider serverUrl="localhost" serverPort={4000}>
+    <RealtimeContextProvider roomId="fullMesh">
       <div>
         <h1>SimpleMediasoupPeer React Example</h1>
-        <p>Realtime context is ready!</p>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto auto auto",
+          padding: "10px",
+        }}
+      >
+        <FullMeshRoom />
       </div>
     </RealtimeContextProvider>
-  )
+  );
 }
 
-export default App
+export default App;

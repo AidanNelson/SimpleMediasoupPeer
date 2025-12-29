@@ -46,14 +46,13 @@ this.consumers = {
 
 */
 import * as mediasoupClient from "mediasoup-client";
+import {debug} from "debug";
 import { io } from "socket.io-client";
-const debug = require("debug");
 const logger = debug("SimpleMediasoupPeer");
 
 class SimpleMediasoupPeer {
   constructor(options = {}) {
     const defaultOptions = {
-      autoConnect: true,
       roomId: null,
       // socket options
       socket: null,
@@ -98,7 +97,7 @@ class SimpleMediasoupPeer {
 
     this.latestAvailableProducers = {};
 
-    this.publiclyExposedEvents = new Set(["track", "trackRemoved", "data"]);
+    this.publiclyExposedEvents = new Set(["track", "trackRemoved"]);
     this.userDefinedCallbacks = {};
 
     // add promisified socket request to make our lives easier
@@ -610,10 +609,14 @@ class SimpleMediasoupPeer {
   add a callback for a given event
   */
   on(event, callback) {
+    console.log('event', event)
+    console.log('callback', typeof callback)
     if (typeof event !== 'string') {
       console.error(`Event name must be one of the following: ${this.publiclyExposedEvents.join(', ')}`);
       return;
     }
+    console.log('event', event)
+    console.log('callback', typeof callback)
     if (typeof callback !== 'function') {
       console.error("Callback must be a function");
       return;

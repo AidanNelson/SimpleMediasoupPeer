@@ -1,5 +1,6 @@
 const express = require("express");
 const http = require("http");
+const { Server } = require("socket.io");
 
 // uncomment one of the following lines to see all mediasoup's internal logging messages:
 // process.env.DEBUG = "mediasoup*" // show everything mediasoup related
@@ -19,4 +20,14 @@ const port = 4000;
 server.listen(port);
 console.log(`Server listening on http://localhost:${port}`);
 
-new SimpleMediasoupPeerServer();
+// Create socket.io server attached to the HTTP server
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Pass the socket.io instance to SimpleMediasoupPeerServer
+new SimpleMediasoupPeerServer({ io: io });
