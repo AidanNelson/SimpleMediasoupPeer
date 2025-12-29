@@ -9,13 +9,12 @@
     "type": "git",
     "url": "https://github.com/AidanNelson/SimpleMediasoupPeer.git"
   },
-  "main": "dist/SimpleMediasoupPeer.js",
-  "module": "index.js",
+  "type": "module",
+  "main": "index.js",
   "exports": {
     ".": {
       "import": "./index.js",
-      "require": "./dist/SimpleMediasoupPeer.js",
-      "default": "./dist/SimpleMediasoupPeer.js"
+      "default": "./index.js"
     }
   },
   "files": [

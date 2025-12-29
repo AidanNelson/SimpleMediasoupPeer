@@ -13,9 +13,6 @@ module.exports = {
       type: "module",
     },
   },
-  optimization: {
-    minimize: false,
-  },
   devServer: {
     hot: false,
     liveReload: true,
